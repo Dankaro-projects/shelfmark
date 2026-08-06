@@ -1,0 +1,20 @@
+# Never commit a catalogue: it is a mutating binary that holds metadata for
+# the operator's whole document tree, including paths classified RESTRICTED.
+*.db
+*.db-shm
+*.db-wal
+*.db.bak-*
+REFRESH_STATUS.json
+.dirty
+.refresh.lock
+
+# Local config is personal by definition.
+config.toml
+
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+.DS_Store

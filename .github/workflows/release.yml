@@ -1,0 +1,81 @@
+name: release
+
+# Publishing is irreversible: a version can be yanked, never unpublished, and
+# mirrors copy it within minutes. So everything that could be wrong about a
+# release is checked BEFORE the upload step, and the upload uses Trusted
+# Publishing (OIDC) so there is no long-lived PyPI token to leak.
+#
+# Cut a release by tagging:  git tag v0.1.0 && git push origin v0.1.0
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: tag must match the packaged version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(grep -m1 '^version *= *"' pyproject.toml | cut -d'"' -f2)
+          echo "tag=$tag packaged=$pkg"
+          [ "$tag" = "$pkg" ] || {
+            echo "::error::tag $tag does not match pyproject version $pkg"
+            exit 1; }
+
+      - name: the suite must pass before anything is built
+        # A release is permanent; a red test is not a reason to find out
+        # afterwards.
+        run: uv run --group dev pytest -q
+
+      - run: uv build
+
+      - name: the sdist must not carry internal files
+        # only-include in pyproject is the mechanism; this is the assertion.
+        # A packaging change that silently re-admits CLAUDE.md would otherwise
+        # only be discovered after the release is permanent.
+        run: |
+          tar tzf dist/*.tar.gz | tee /tmp/sdist.txt
+          if grep -qE '(^|/)CLAUDE\.md$' /tmp/sdist.txt; then
+            echo "::error::CLAUDE.md is in the sdist — fix [tool.hatch.build.targets.sdist]"
+            exit 1
+          fi
+          for pat in '\.db$' '\.db-wal$' 'config\.toml$' 'REFRESH_STATUS\.json$'; do
+            if grep -qE "$pat" /tmp/sdist.txt; then
+              echo "::error::operator data matching /$pat/ is in the sdist"
+              exit 1
+            fi
+          done
+
+      - name: the wheel must actually install and run
+        run: |
+          uv venv /tmp/check
+          uv pip install --python /tmp/check/bin/python dist/*.whl
+          /tmp/check/bin/shelfmark --version
+          /tmp/check/bin/python -c "import shelfmark.server, shelfmark.cli"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Configure this environment on PyPI as a trusted publisher for the
+    # `shelfmark` project, workflow `release.yml`, environment `pypi`.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

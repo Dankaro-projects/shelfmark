@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shelfmark"
+version = "0.1.0"
+description = "Local, privacy-first document catalogue + MCP server: metadata-only search over your file tree for Claude Code and other MCP clients."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Dankaro" }]
+# The '<2' pin is load-bearing. mcp 2.0.0 removed `mcp.server.fastmcp`;
+# lifting the pin means porting the server to the 2.x API first.
+dependencies = ["mcp>=1.2,<2"]
+keywords = ["mcp", "search", "documents", "catalogue", "local-first", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Filesystems",
+    "Topic :: Text Processing :: Indexing",
+]
+
+[project.optional-dependencies]
+# .pst / .msg email archive ingestion
+email = ["libpff-python", "extract-msg"]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-timeout>=2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests/ is not a package; conftest helpers are imported by module name.
+pythonpath = ["src", "tests"]
+addopts = "-q --strict-markers"
+# The server runs a refresh loop, so a regression can hang rather than fail
+# -- and a hung test reads as a pass until someone kills the job. Every test
+# here finishes in well under a second; the cap is a backstop, not a budget.
+timeout = 60
+
+[project.urls]
+Homepage = "https://github.com/Dankaro-projects/shelfmark"
+Repository = "https://github.com/Dankaro-projects/shelfmark"
+Issues = "https://github.com/Dankaro-projects/shelfmark/issues"
+
+[project.scripts]
+shelfmark = "shelfmark.cli:main"
+shelfmark-mcp = "shelfmark.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shelfmark"]
+
+# A published version is permanent -- it can be yanked, never unpublished --
+# so the sdist ships exactly what an installing user needs and nothing more.
+# CLAUDE.md is the internal contributor guide and stays out of releases.
+# only-include means anything added at the repo root is EXCLUDED BY DEFAULT:
+# opt a file in deliberately, rather than discover it in a release.
+# (.gitignore rides along regardless -- hatchling always ships it, and its
+# contents are already public in the repo.)
+[tool.hatch.build.targets.sdist]
+only-include = ["src/shelfmark", "README.md", "LICENSE", "config.example.toml",
+                "pyproject.toml"]

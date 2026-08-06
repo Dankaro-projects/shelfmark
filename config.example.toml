@@ -1,0 +1,98 @@
+# shelfmark configuration.
+#
+# Regexes: use single-quoted TOML strings ('...') so backslashes survive.
+# Path prefixes are catalogue-relative (no leading slash) and match whole
+# folder names.
+
+[index]
+# Where the SQLite catalogue lives. MUST be outside every indexed root and
+# outside any cloud-synced folder (iCloud/Dropbox/OneDrive) — it is a
+# mutating binary DB and would thrash sync on every refresh.
+db = "~/.local/share/shelfmark/catalog.db"
+
+# The tree to index. Exactly one root has no label (the primary root);
+# catalogue paths are stored relative to it. Add more [[roots]] blocks with
+# a label for trees that live elsewhere — their paths are stored under
+# "<label>/…".
+[[roots]]
+path = "~/Documents"
+
+# [[roots]]
+# label = "notes"
+# path = "~/notes"
+
+[scan]
+# Appended to the built-in skip list (node_modules, .git, venv, …).
+skip_dirs = []
+skip_names = []
+
+[privacy]
+# Extra regexes for credential-like files (built-ins already cover .env,
+# key/cert extensions, id_rsa, backup codes, passports…). Matches become
+# RESTRICTED: catalogued for your own local search, never returned by any
+# MCP tool, never opened for hashing or extraction.
+secret_patterns = []
+# Path regexes for personal/private subtrees, e.g. '^Personal/', 'payslip'.
+private_paths = []
+
+[authors]
+# Regexes matched against OOXML author fields. "own" marks files you or
+# your company authored; "client" marks authors that must never resolve to
+# OWN (e.g. a client who shares a name fragment with you). "tool" extends
+# the built-in list of generator tools (pptxgenjs, openpyxl, pandoc, …).
+own = []
+client = []
+tool = []
+
+[rights]
+# Path-prefix rules, checked in this order after the author signals.
+# rights = may I REUSE it (OWN/REFERENCE/RESTRICTED);
+# confidential = may it LEAVE (independent axis — a deck you authored for a
+# client is OWN and confidential at the same time).
+own_prefixes = []                 # yours, shareable
+own_confidential_prefixes = []    # yours, but never leaves (e.g. invoices)
+reference_prefixes = []           # third-party material, fine to reference
+neutral_prefixes = []             # scratch/captures: not work product
+client_roots = []                 # engagement trees: confidential by default
+personal_roots = []               # personal admin: held out of the work index
+work_under_personal = []          # work subtrees misfiled under a personal root
+
+[facets]
+# Top-level folders that count as work (client = 2nd path segment,
+# project = 3rd) or personal. Everything else is domain "other".
+work_roots = []
+personal_roots = []
+# Subtree prefixes that re-anchor client extraction below them (work
+# archives filed inside a personal root).
+reanchor = []
+
+[doc_types]
+# Extra filename rules, checked BEFORE the built-ins: [["type", 'regex'], …]
+# Anchor short alternatives on BOTH sides — see the README.
+rules = []
+# Built-in rule names to disable for this corpus (e.g. "roadmap" if the
+# word "sprint" means something else in your files).
+disable = []
+# Extension → type additions/overrides: { ".xyz" = "mytype" }
+[doc_types.ext]
+
+[context_types]
+rules = []
+disable = []
+
+[refresh]
+max_age_seconds = 900        # --if-needed refreshes when older than this
+prune_ceiling_pct = 2        # refuse to prune more than this share of rows
+prune_min_rows = 50          # …when it is also more than this many rows
+coverage_floor_pct = 80      # fail if the walk sees less than this share
+stale_after_hours = 3        # corpus_stats warns beyond this age
+
+[server]
+max_limit = 100              # hard cap on any tool's result list
+body_chars = 1500            # email body excerpt length
+
+[cards]
+# `shelfmark cards` gives a subtree its own card when it is big, or dense
+# in reusable material even when small. Lower these for small corpora.
+min_files = 100
+min_own_open = 20

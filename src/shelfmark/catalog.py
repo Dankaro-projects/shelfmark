@@ -1,0 +1,531 @@
+"""Build the metadata catalogue.
+
+Metadata only: path facets, filename-derived doc type, OOXML authorship,
+content hash, eviction/corruption status. No body text is ever extracted.
+
+Incremental by (size, mtime, residency). Residency is in the skip key on
+purpose: a cloud sync engine (iCloud "Optimize Storage") materialising or
+evicting a file changes st_blocks but neither size nor mtime, so a
+(size, mtime)-only skip freezes the evicted flag forever. Anything derived
+at ingest time inherits the skip — a field computed inside ingest() is only
+recomputed when the key changes. Before adding a derived column, decide
+what invalidates it; if that is not in the skip key, it needs its own
+backfill pass (see hashes.py).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import sqlite3
+import sys
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .config import Config, has_prefix
+from .probe import parse_app, parse_core
+from .rules import (DATE_IN_NAME_RE, FORMAT_WINS_EXT, FORMAT_WINS_NAME,
+                    OOXML_EXT, VERSION_RE)
+from .rules import DEFAULT_SKIP_PREFIXES as SKIP_PREFIXES
+from .schema import OWNED_TABLES, OWNED_VIEWS, SCHEMA
+
+
+def connect(cfg: Config, rebuild: bool = False) -> sqlite3.Connection:
+    cfg.db.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(cfg.db)
+    if rebuild:
+        for v in OWNED_VIEWS:
+            con.execute(f"DROP VIEW IF EXISTS {v}")
+        for t in OWNED_TABLES:
+            con.execute(f"DROP TABLE IF EXISTS {t}")
+        con.commit()
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA synchronous=NORMAL")
+    con.executescript(SCHEMA)
+    return con
+
+
+# ------------------------------------------------------------------ derivation
+
+def dir_seg(parts: list[str], i: int) -> str | None:
+    """parts[i], but only when it is a DIRECTORY — i.e. something follows it.
+
+    The last segment is the filename. Taking it as a facet makes a file
+    sitting directly under a root label itself: 'Misc/notes.json' would
+    produce client='notes.json', poisoning the client vocabulary and every
+    client-filtered search."""
+    return parts[i] if len(parts) > i + 1 else None
+
+
+def path_facets(rel: str, cfg: Config) -> tuple[str, str | None, str | None, int, str]:
+    """Derive (root, client, project, depth, domain) from a catalogue path.
+
+    Which roots count as work/personal, and which subtrees re-anchor client
+    extraction (work material misfiled under a personal root), come from
+    config — the taxonomy is the operator's, not the tool's."""
+    parts = rel.split("/")
+    root = parts[0]
+    domain = ("work" if root in cfg.facet_work_roots else
+              "personal" if root in cfg.facet_personal_roots else "other")
+
+    for prefix in cfg.facet_reanchor:
+        if rel.startswith(prefix):
+            # e.g. a work archive filed under a personal root: re-anchor so
+            # its first level reads as a client, not as an admin subfolder.
+            anchor_parts = prefix.rstrip("/").split("/")
+            sub = parts[len(anchor_parts):]
+            client = dir_seg(sub, 0) or anchor_parts[-1]
+            project = dir_seg(sub, 1)
+            return root, client, project, len(parts) - 1, "work"
+
+    if root in cfg.facet_work_roots:
+        client = dir_seg(parts, 1)
+        project = None
+        if len(parts) > 2 and not parts[2].startswith("."):
+            project = dir_seg(parts, 2)
+        return root, client, project, len(parts) - 1, domain
+
+    return root, dir_seg(parts, 1), None, len(parts) - 1, domain
+
+
+def classify_doc_type(filename: str, ext: str, cfg: Config) -> tuple[str | None, str]:
+    """What the FILE is. Filename first, extension as fallback.
+
+    Deliberately does NOT look at the path: matching the whole path lets one
+    folder brand all its children (a 'Meeting …' folder turning every
+    spreadsheet inside it into minutes). Folder meaning is context_type."""
+    if FORMAT_WINS_NAME.match(filename or ""):
+        return "code", "name-locked"
+    if ext in FORMAT_WINS_EXT:
+        return cfg.ext_fallback.get(ext, "code"), "ext-locked"
+    stem = filename.rsplit(".", 1)[0]
+    for name, pat in cfg.doc_type_rules:
+        if pat.search(stem):
+            return name, "filename"
+    if ext in cfg.ext_fallback:
+        return cfg.ext_fallback[ext], "ext"
+    return None, "none"
+
+
+def classify_context(rel: str, cfg: Config) -> tuple[str | None, str | None]:
+    """What the FOLDER is for. Walks parents inward-out; closest label wins."""
+    parts = rel.split("/")[:-1]
+    for folder in reversed(parts):
+        for name, pat in cfg.context_rules:
+            if pat.search(folder):
+                return name, folder
+    return None, parts[-1] if parts else None
+
+
+def infer_rights(rel: str, author: str | None, last_author: str | None,
+                 sensitive: bool, cfg: Config) -> str:
+    """Coarse authorship-based rights, written at ingest time.
+
+    The full path-rule pass (rights.py) runs after every build and refines
+    this — the builder's upsert would overwrite the refined value for any
+    file it touches, which is why the two always run as a pair."""
+    if sensitive:
+        return "RESTRICTED"
+    # Client authorship wins over the OWN patterns, so a client who happens
+    # to share a name fragment with the operator is never misfiled as OWN.
+    if cfg.client_author_re:
+        for a in (author, last_author):
+            if a and cfg.client_author_re.search(a):
+                return "REFERENCE"
+        if cfg.client_author_re.search(rel):
+            return "REFERENCE"
+    if cfg.own_author_re:
+        for a in (author, last_author):
+            if a and cfg.own_author_re.search(a):
+                return "OWN"
+    if author and cfg.tool_author_re and cfg.tool_author_re.search(author):
+        return "OWN"
+    if author:
+        return "REFERENCE"
+    return "UNKNOWN"
+
+
+# ----------------------------------------------------------------- file inspection
+
+def is_evicted(st: os.stat_result) -> bool:
+    """True when the file is a dataless cloud placeholder.
+
+    On macOS, iCloud marks the file itself dataless (SF_DATALESS in st_flags;
+    st_blocks drops to 0 while st_size stays). Do NOT test for '.icloud' stub
+    files — modern macOS does not create them, and an empty stub search reads
+    as 'everything is materialised' when it is not. On filesystems without
+    block counts this returns False."""
+    blocks = getattr(st, "st_blocks", None)
+    return blocks == 0 and st.st_size > 0 if blocks is not None else False
+
+
+def sha256_of(path: Path, st: os.stat_result) -> str | None:
+    """Hash only materialised files.
+
+    A dataless cloud file can read as empty and yield the SHA-256 of the
+    empty string, which silently makes distinct files look identical."""
+    if st.st_size == 0 or is_evicted(st):
+        return None
+    h = hashlib.sha256()
+    try:
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                h.update(chunk)
+    except OSError:
+        return None
+    digest = h.hexdigest()
+    # empty-string hash on a non-empty file means the read never materialised
+    if digest.startswith("e3b0c44298fc1c14") and st.st_size > 0:
+        return None
+    return digest
+
+
+def sniff_non_ooxml(path: Path) -> dict:
+    """Classify a file that carries an OOXML extension but is not a zip.
+
+    'Not a zip' is NOT the same as corrupt: plain text or Markdown saved with
+    a .docx/.pptx extension, and legacy OLE files carrying a modern extension,
+    are perfectly readable. Reserve 'corrupt' for bytes we truly cannot
+    account for."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(4096)
+    except OSError:
+        return {"_error": "unreadable"}
+    if not head:
+        return {"_status": "corrupt", "_note": "zero bytes"}
+    if head[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        return {"_status": "ok", "_note": "legacy OLE format, extension misleading"}
+    if head[:5] == b"{\\rtf":
+        return {"_status": "ok", "_note": "RTF, extension misleading"}
+    if head[:4] == b"%PDF":
+        return {"_status": "ok", "_note": "PDF, extension misleading"}
+    try:
+        txt = head.decode("utf-8")
+    except UnicodeDecodeError:
+        return {"_status": "corrupt", "_note": "not zip, not OLE, not text"}
+    kind = "markdown" if txt.lstrip().startswith("#") else "plain text"
+    return {"_status": "ok", "_note": f"{kind}, extension misleading",
+            "_real_type": "note"}
+
+
+def probe_ooxml(path: Path) -> dict:
+    """Pull docProps only. Never reads slides, paragraphs or cells."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            parts, app = parse_app(z)
+            out = parse_core(z)
+            out.update(app)
+            out.update(parts)
+            return out
+    except zipfile.BadZipFile:
+        return sniff_non_ooxml(path)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds")
+
+
+# --------------------------------------------------------------------- walk
+
+def walk(cfg: Config):
+    """Yield (absolute_path, catalogue_key) over the primary root plus extras.
+
+    The catalogue key is the path recorded in the DB. For extra roots it is
+    prefixed with the root label so entries stay distinguishable from, and
+    never collide with, primary-relative paths. A missing EXTRA root is
+    skipped here and reported by ingest() as roots_missing — an unmounted
+    root is indistinguishable from a mass deletion, so the prune must know."""
+    primary = cfg.primary_root.path
+    if primary.is_dir():
+        for dirpath, dirnames, filenames in os.walk(primary):
+            dirnames[:] = [d for d in dirnames if d not in cfg.skip_dirs]
+            for fn in filenames:
+                if fn in cfg.skip_names or fn.startswith(SKIP_PREFIXES):
+                    continue
+                p = Path(dirpath) / fn
+                yield p, str(p.relative_to(primary))
+
+    for label, base in cfg.extra_roots.items():
+        if not base.is_dir():
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in cfg.skip_dirs]
+            for fn in filenames:
+                if fn in cfg.skip_names or fn.startswith(SKIP_PREFIXES):
+                    continue
+                p = Path(dirpath) / fn
+                yield p, f"{label}/{p.relative_to(base)}"
+
+
+# ------------------------------------------------------------------- ingest
+
+def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
+    cur = con.cursor()
+    known = {r[0]: (r[1], r[2], r[3], r[4]) for r in cur.execute(
+        "SELECT path, bytes, mtime, evicted, status FROM files")}
+    counts = {"new": 0, "updated": 0, "skipped": 0, "evicted": 0,
+              "rematerialised": 0, "corrupt": 0, "restricted": 0, "total": 0}
+    # Microseconds, not seconds: the prune compares seen_at < run_ts, and two
+    # refreshes inside the same second (hooks firing back-to-back) would make
+    # a deletion invisible to the second one at coarser resolution.
+    now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+
+    # seen_at must mean "this path was on disk during this walk", not "this
+    # path was written during this walk" — the refresh prunes on it, and a
+    # row left with an older stamp gets deleted. So every path the walk
+    # yields is stamped, including unchanged ones the skip never writes.
+    unchanged: list[str] = []
+
+    # Paths whose cloud materialisation flipped but whose content did not:
+    # (path, evicted, status). Corrected in bulk, cheaply — see below.
+    rematerialised: list[tuple[str, int, str]] = []
+
+    def flush_unchanged(force: bool = False) -> None:
+        if unchanged and (force or len(unchanged) >= 5000):
+            cur.executemany("UPDATE files SET seen_at=? WHERE path=?",
+                            [(now, r) for r in unchanged])
+            unchanged.clear()
+
+    def flush_rematerialised(force: bool = False) -> None:
+        if rematerialised and (force or len(rematerialised) >= 5000):
+            cur.executemany(
+                "UPDATE files SET evicted=?, status=?, seen_at=? WHERE path=?",
+                [(ev, stt, now, r) for r, ev, stt in rematerialised])
+            rematerialised.clear()
+
+    for p, rel in walk(cfg):
+        try:
+            st = p.stat()
+        except OSError:
+            # The file is there (os.walk listed it) but unreadable this run —
+            # a sync race or a permission bump. Stamp it so a transient stat
+            # failure never reads as a deletion and drops its metadata.
+            unchanged.append(rel)
+            flush_unchanged()
+            continue
+        counts["total"] += 1
+        mtime = iso(st.st_mtime)
+        evicted = is_evicted(st)
+
+        prev = known.get(rel)
+        if prev and prev[0] == st.st_size and prev[1] == mtime:
+            if bool(prev[2]) == evicted:
+                counts["skipped"] += 1
+                unchanged.append(rel)
+                flush_unchanged()
+                continue
+            # Materialisation flipped, content did not. Cloud sync changes
+            # st_blocks but neither size nor mtime, so a size+mtime skip
+            # would freeze the old flag forever. Correct the flag here
+            # rather than fall through to a full re-ingest: re-hashing tens
+            # of GB inside a session-start refresh destroys its time budget;
+            # hashes.py picks the hashes up on demand. 'corrupt' is a
+            # content verdict, not a residency one — keep it.
+            status = prev[3] if prev[3] == "corrupt" else (
+                "evicted" if evicted else "ok")
+            rematerialised.append((rel, int(evicted), status))
+            counts["rematerialised"] += 1
+            if evicted:
+                counts["evicted"] += 1
+            flush_rematerialised()
+            continue
+
+        ext = p.suffix.lower()
+        sensitive = bool(cfg.secret_re.search(rel) or
+                         (cfg.private_re and cfg.private_re.search(rel)))
+        status = "evicted" if evicted else "ok"
+
+        root, client, project, depth, domain = path_facets(rel, cfg)
+        doc_type, doc_type_src = classify_doc_type(p.name, ext, cfg)
+        context_type, folder_label = classify_context(rel, cfg)
+        vm = VERSION_RE.search(p.name)
+        dm = DATE_IN_NAME_RE.search(p.name)
+
+        sha = None
+        if do_hash and not evicted and not sensitive:
+            sha = sha256_of(p, st)
+
+        meta: dict = {}
+        note = None
+        probed = ext in OOXML_EXT and not evicted and not sensitive
+        if probed:
+            meta = probe_ooxml(p)
+            if meta.get("_status") == "corrupt":
+                status = "corrupt"
+                counts["corrupt"] += 1
+            note = meta.get("_note")
+            if meta.get("_real_type"):
+                doc_type, doc_type_src = meta["_real_type"], "sniffed"
+
+        author = meta.get("creator")
+        last_author = meta.get("lastmod_by")
+        rights = infer_rights(rel, author, last_author, sensitive, cfg)
+
+        if evicted:
+            counts["evicted"] += 1
+        if rights == "RESTRICTED":
+            counts["restricted"] += 1
+
+        btime = getattr(st, "st_birthtime", None)  # absent on Linux
+        cur.execute(
+            """INSERT INTO files
+               (path, filename, root, client, project, depth, ext, bytes,
+                evicted, status, mtime, btime, name_year, version_tag, doc_type,
+                doc_type_src, context_type, folder_label, domain,
+                sha256, author, last_author, company, ooxml_title,
+                authored_date, slide_count, rights, sensitive, note, seen_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(path) DO UPDATE SET
+                bytes=excluded.bytes, mtime=excluded.mtime, status=excluded.status,
+                evicted=excluded.evicted, sha256=excluded.sha256,
+                author=excluded.author, last_author=excluded.last_author,
+                company=excluded.company, ooxml_title=excluded.ooxml_title,
+                authored_date=excluded.authored_date,
+                slide_count=excluded.slide_count, rights=excluded.rights,
+                sensitive=excluded.sensitive, doc_type=excluded.doc_type,
+                note=excluded.note,
+                doc_type_src=excluded.doc_type_src,
+                context_type=excluded.context_type,
+                folder_label=excluded.folder_label, domain=excluded.domain,
+                seen_at=excluded.seen_at
+            """,
+            (rel, p.name, root, client, project, depth, ext, st.st_size,
+             int(evicted), status, mtime,
+             iso(btime) if btime is not None else None,
+             int(dm.group(1)) if dm else None,
+             vm.group(1).lower() if vm else None, doc_type,
+             doc_type_src, context_type, folder_label, domain,
+             sha, author, last_author, meta.get("company"),
+             (meta.get("title") or None), meta.get("created"),
+             int(meta["slides"]) if str(meta.get("slides", "")).isdigit() else None,
+             rights, int(sensitive), note, now),
+        )
+        fid = cur.execute("SELECT id FROM files WHERE path=?", (rel,)).fetchone()[0]
+
+        # Blanks are holes, not absences: the probe blanks placeholder titles
+        # ("Slide 7") and keeps the slot, so idx must come from the original
+        # position or every later title reports the wrong slide number.
+        #
+        # Only a run that actually opened the file may clear its titles.
+        # Rewriting from an empty meta would silently strip the titles of
+        # every deck that went cloud-evicted since the last pass.
+        titles: list[str] = []
+        if probed:
+            raw_titles = meta.get("slide_titles") or []
+            keep = [(fid, i, t) for i, t in enumerate(raw_titles) if t.strip()]
+            titles = [t for _, _, t in keep]
+            cur.execute("DELETE FROM slide_titles WHERE file_id=?", (fid,))
+            if keep:
+                cur.executemany(
+                    "INSERT INTO slide_titles(file_id, idx, title) "
+                    "VALUES (?,?,?)", keep,
+                )
+
+        # FTS: metadata + slide titles only, and never for restricted material
+        cur.execute("DELETE FROM files_fts WHERE rowid=?", (fid,))
+        if rights != "RESTRICTED":
+            cur.execute(
+                "INSERT INTO files_fts(rowid, path, filename, doc_type, author,"
+                " company, ooxml_title, titles) VALUES (?,?,?,?,?,?,?,?)",
+                (fid, rel, p.name, doc_type or "", author or "",
+                 meta.get("company") or "", meta.get("title") or "",
+                 " \n".join(titles)),
+            )
+
+        counts["updated" if prev else "new"] += 1
+        if counts["total"] % 2000 == 0:
+            flush_unchanged(force=True)
+            flush_rematerialised(force=True)
+            con.commit()
+            print(f"  ... {counts['total']} files seen", file=sys.stderr)
+
+    flush_unchanged(force=True)
+    flush_rematerialised(force=True)
+    con.commit()
+    counts["run_ts"] = now
+    counts["roots_missing"] = [
+        lab for lab, base in cfg.extra_roots.items() if not base.is_dir()]
+    if not cfg.primary_root.path.is_dir():
+        counts["roots_missing"].insert(0, str(cfg.primary_root.path))
+    return counts
+
+
+# -------------------------------------------------------------------- stats
+
+def stats(con: sqlite3.Connection) -> str:
+    q = con.execute
+    total, = q("SELECT COUNT(*) FROM files").fetchone()
+    out = [f"\ncatalogued files: {total}\n"]
+
+    def table(title, sql, limit=12):
+        rows = q(sql).fetchall()[:limit]
+        if not rows:
+            return
+        out.append(f"=== {title} ===")
+        for r in rows:
+            label = r[0] if r[0] is not None else "(none)"
+            out.append(f"  {r[1]:6d}  {str(label)[:58]}")
+        out.append("")
+
+    table("status", "SELECT status, COUNT(*) FROM files GROUP BY 1 ORDER BY 2 DESC")
+    table("rights", "SELECT rights, COUNT(*) FROM files GROUP BY 1 ORDER BY 2 DESC")
+    table("root", "SELECT root, COUNT(*) FROM files GROUP BY 1 ORDER BY 2 DESC")
+    table("doc_type", "SELECT doc_type, COUNT(*) FROM files GROUP BY 1 ORDER BY 2 DESC", 20)
+    table("top clients", "SELECT client, COUNT(*) FROM files WHERE domain='work' GROUP BY 1 ORDER BY 2 DESC", 20)
+    table("authors", "SELECT author, COUNT(*) FROM files WHERE author IS NOT NULL GROUP BY 1 ORDER BY 2 DESC", 15)
+
+    dups = q("""SELECT COUNT(*), SUM(bytes) FROM (
+                  SELECT sha256, COUNT(*) c, SUM(bytes)-MAX(bytes) bytes
+                  FROM files WHERE sha256 IS NOT NULL
+                  GROUP BY sha256 HAVING c > 1)""").fetchone()
+    if dups and dups[0]:
+        out.append(f"=== duplicates ===\n  {dups[0]} duplicate groups, "
+                   f"{(dups[1] or 0)/1048576:.0f} MB reclaimable\n")
+
+    # An unconfigured corpus classifies almost everything UNKNOWN, and
+    # UNKNOWN is held back from shareable_only — so search looks broken
+    # while every number above looks healthy.
+    #
+    # Name the mechanism that actually applies. Authorship only ever reaches
+    # OOXML files, and most corpora are mostly not that: pointing at
+    # [authors] here reads as half the answer when it is a few per cent of
+    # it. Path rules are what classify the rest, and `review` is how to get
+    # them without learning the schema.
+    unknown, = q("SELECT COUNT(*) FROM files WHERE rights='UNKNOWN'").fetchone()
+    if total and unknown * 100 // total >= 50:
+        pct = unknown * 100 // total
+        no_author, = q("SELECT COUNT(*) FROM files WHERE rights='UNKNOWN'"
+                       " AND author IS NULL").fetchone()
+        out.append(
+            f"=== next step ===\n"
+            f"  {pct}% of the catalogue is UNKNOWN rights ({unknown} of "
+            f"{total}), and {no_author} of those carry no author at all —\n"
+            f"  so no [authors] rule can reach them. Only path rules can.\n"
+            f"  UNKNOWN is never returned under shareable_only, so that "
+            f"filter will look empty until they exist.\n"
+            f"  Run:  shelfmark review\n")
+    return "\n".join(out)
+
+
+def build(cfg: Config, rebuild: bool = False, do_hash: bool = True) -> dict:
+    """Walk the tree and update the catalogue. Returns the ingest counts."""
+    con = connect(cfg, rebuild=rebuild)
+    try:
+        print(f"cataloguing {cfg.primary_root.path} -> {cfg.db}", file=sys.stderr)
+        c = ingest(con, cfg, do_hash=do_hash)
+        missing = c["roots_missing"]
+        print(f"run_ts {c['run_ts']}", file=sys.stderr)
+        print(f"roots_missing {','.join(missing) if missing else '-'}",
+              file=sys.stderr)
+        print(f"\nseen {c['total']}  new {c['new']}  updated {c['updated']}  "
+              f"unchanged {c['skipped']}  "
+              f"rematerialised {c['rematerialised']}", file=sys.stderr)
+        print(f"evicted {c['evicted']}  corrupt {c['corrupt']}  "
+              f"restricted {c['restricted']}", file=sys.stderr)
+        return c
+    finally:
+        con.close()
