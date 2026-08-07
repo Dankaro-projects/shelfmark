@@ -231,34 +231,68 @@ def iso(ts: float) -> str:
 
 # --------------------------------------------------------------------- walk
 
-def walk(cfg: Config):
+def _sidecars(cfg: Config) -> set[Path]:
+    """Every file the catalogue itself owns, resolved."""
+    db = cfg.db
+    out = {db, Path(str(db) + "-wal"), Path(str(db) + "-shm"),
+           cfg.status_path, cfg.dirty_marker, cfg.log_path}
+    return {Path(os.path.realpath(p)) for p in out}
+
+
+def walk(cfg: Config, stats: dict | None = None):
     """Yield (absolute_path, catalogue_key) over the primary root plus extras.
 
     The catalogue key is the path recorded in the DB. For extra roots it is
     prefixed with the root label so entries stay distinguishable from, and
     never collide with, primary-relative paths. A missing EXTRA root is
     skipped here and reported by ingest() as roots_missing — an unmounted
-    root is indistinguishable from a mass deletion, so the prune must know."""
-    primary = cfg.primary_root.path
-    if primary.is_dir():
-        for dirpath, dirnames, filenames in os.walk(primary):
-            dirnames[:] = [d for d in dirnames if d not in cfg.skip_dirs]
-            for fn in filenames:
-                if fn in cfg.skip_names or fn.startswith(SKIP_PREFIXES):
-                    continue
-                p = Path(dirpath) / fn
-                yield p, str(p.relative_to(primary))
+    root is indistinguishable from a mass deletion, so the prune must know.
 
-    for label, base in cfg.extra_roots.items():
-        if not base.is_dir():
-            continue
+    SYMLINKS ARE NOT FOLLOWED. The roots are the trust boundary, and a
+    symlink is an invitation to leave it: a link to /etc/passwd inside a
+    root reads as an ordinary file, gets catalogued, and `hash` opens it.
+    os.walk already declines to descend symlinked directories; this declines
+    the files too. A tree you do mean to index is an extra root — saying so
+    in config is the honest way to widen the boundary.
+
+    `stats`, if given, receives a `symlinks` count so the skip is reported
+    rather than silent."""
+    seen_links = 0
+    guard = _sidecars(cfg)
+
+    def files_under(base: Path, to_key):
+        nonlocal seen_links
+        # followlinks defaults to False, which is what declines to descend a
+        # symlinked directory. test_a_symlinked_directory_is_not_descended
+        # guards the behaviour, so it survives anyone changing the mechanism.
         for dirpath, dirnames, filenames in os.walk(base):
             dirnames[:] = [d for d in dirnames if d not in cfg.skip_dirs]
             for fn in filenames:
                 if fn in cfg.skip_names or fn.startswith(SKIP_PREFIXES):
                     continue
-                p = Path(dirpath) / fn
-                yield p, f"{label}/{p.relative_to(base)}"
+                full = os.path.join(dirpath, fn)
+                if os.path.islink(full):
+                    seen_links += 1
+                    continue
+                p = Path(full)
+                # Defence in depth: config refuses a catalogue inside a root,
+                # but never index our own database or its sidecars.
+                if Path(os.path.realpath(p)) in guard:
+                    continue
+                yield p, to_key(p)
+
+    primary = cfg.primary_root.path
+    if primary.is_dir():
+        yield from files_under(primary, lambda p: str(p.relative_to(primary)))
+
+    for label, base in cfg.extra_roots.items():
+        if not base.is_dir():
+            continue
+        yield from files_under(base, lambda p, b=base, l=label:
+                               f"{l}/{p.relative_to(b)}")
+
+    if stats is not None:
+        stats["symlinks"] = seen_links
 
 
 # ------------------------------------------------------------------- ingest
@@ -268,7 +302,8 @@ def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
     known = {r[0]: (r[1], r[2], r[3], r[4]) for r in cur.execute(
         "SELECT path, bytes, mtime, evicted, status FROM files")}
     counts = {"new": 0, "updated": 0, "skipped": 0, "evicted": 0,
-              "rematerialised": 0, "corrupt": 0, "restricted": 0, "total": 0}
+              "rematerialised": 0, "corrupt": 0, "restricted": 0, "total": 0,
+              "symlinks": 0}
     # Microseconds, not seconds: the prune compares seen_at < run_ts, and two
     # refreshes inside the same second (hooks firing back-to-back) would make
     # a deletion invisible to the second one at coarser resolution.
@@ -297,7 +332,7 @@ def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
                 [(ev, stt, now, r) for r, ev, stt in rematerialised])
             rematerialised.clear()
 
-    for p, rel in walk(cfg):
+    for p, rel in walk(cfg, stats=counts):
         try:
             st = p.stat()
         except OSError:
@@ -526,6 +561,10 @@ def build(cfg: Config, rebuild: bool = False, do_hash: bool = True) -> dict:
               f"rematerialised {c['rematerialised']}", file=sys.stderr)
         print(f"evicted {c['evicted']}  corrupt {c['corrupt']}  "
               f"restricted {c['restricted']}", file=sys.stderr)
+        if c.get("symlinks"):
+            print(f"skipped {c['symlinks']} symlink(s) — the roots are the "
+                  f"trust boundary; add a tree as an extra root to index it",
+                  file=sys.stderr)
         return c
     finally:
         con.close()

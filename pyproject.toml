@@ -4,16 +4,19 @@ build-backend = "hatchling.build"
 
 [project]
 name = "shelfmark"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local, privacy-first document catalogue + MCP server: metadata-only search over your file tree for Claude Code and other MCP clients."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Dankaro" }]
-# The '<2' pin is load-bearing. mcp 2.0.0 removed `mcp.server.fastmcp`;
-# lifting the pin means porting the server to the 2.x API first.
-dependencies = ["mcp>=1.2,<2"]
+# Both bounds are tested, not guessed. Upper: mcp 2.0.0 removed
+# `mcp.server.fastmcp`, so lifting it means porting server.py first.
+# Lower: 1.8 through 1.13 raise TypeError on import against current
+# pydantic-settings, so a wider floor would declare support for versions
+# that do not work. CI runs the floor and the latest on every push.
+dependencies = ["mcp>=1.14,<2"]
 keywords = ["mcp", "search", "documents", "catalogue", "local-first", "claude"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -62,5 +65,7 @@ packages = ["src/shelfmark"]
 # (.gitignore rides along regardless -- hatchling always ships it, and its
 # contents are already public in the repo.)
 [tool.hatch.build.targets.sdist]
-only-include = ["src/shelfmark", "README.md", "LICENSE", "config.example.toml",
-                "pyproject.toml"]
+# `tests` ships: a declared test suite that cannot be run from the release
+# artifact is a claim the recipient has to take on trust.
+only-include = ["src/shelfmark", "tests", "README.md", "LICENSE",
+                "config.example.toml", "pyproject.toml"]

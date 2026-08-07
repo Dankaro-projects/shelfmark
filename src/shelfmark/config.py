@@ -30,6 +30,19 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "shelfmark" / "config.toml"
 DEFAULT_DB_PATH = Path.home() / ".local" / "share" / "shelfmark" / "catalog.db"
 
 
+def _inside(child: Path, parent: Path) -> bool:
+    """Is `child` at or under `parent`, once both are resolved?
+
+    Resolved on both sides: an unresolved comparison is defeated by `..` in
+    either path and by a symlinked root, which is precisely how a catalogue
+    ends up inside the tree it indexes."""
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
 class ConfigError(Exception):
     """Bad or missing configuration. Message is operator-facing."""
 
@@ -204,19 +217,24 @@ def load(explicit: str | os.PathLike | None = None) -> Config:
         raise ConfigError(f"{path}: extra-root labels must be unique.")
 
     # ---- index location -------------------------------------------------
+    # Checked against EVERY root, not just the primary one, and on resolved
+    # paths. A catalogue inside a root indexes itself: the walk picks up the
+    # .db, its -wal and -shm, REFRESH_STATUS.json and the log, and each pass
+    # writes them again, so the corpus grows on every refresh. Comparing
+    # unresolved paths also let `..` or a symlinked root walk straight past.
     idx = data.get("index", {})
     db = Path(os.environ.get(ENV_DB)
               or idx.get("db", DEFAULT_DB_PATH)).expanduser()
-    primary = primaries[0].path
-    try:
-        db.relative_to(primary)
-        raise ConfigError(
-            f"{path}: index.db ({db}) sits INSIDE the primary root "
-            f"({primary}). The catalogue is a mutating binary DB and must "
-            f"live outside any indexed or cloud-synced tree."
-        )
-    except ValueError:
-        pass
+    for r in roots:
+        if _inside(db, r.path):
+            which = f"the primary root" if not r.label else f"root {r.label!r}"
+            raise ConfigError(
+                f"{path}: index.db ({db}) sits INSIDE {which} ({r.path}). "
+                f"The catalogue is a mutating binary DB — indexed from "
+                f"inside a root it would catalogue itself and grow on every "
+                f"refresh. Put it outside every indexed tree (and outside "
+                f"any cloud-synced folder)."
+            )
 
     # ---- scanning -------------------------------------------------------
     scan = data.get("scan", {})

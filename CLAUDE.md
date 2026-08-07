@@ -66,6 +66,11 @@ A constraint on the code, not a slogan:
   `confidential` (may it leave) are independent axes; `shareable` means
   *positively* classified. `refresh.py` asserts all of this after every
   run — keep those assertions at the call site.
+- **The roots are the filesystem trust boundary.** Symlinks are not
+  followed, the catalogue is refused inside any root, and both checks
+  compare RESOLVED paths — unresolved comparison is defeated by `..` and by
+  a symlinked root. An independent review of 0.1.0 found both holes; the
+  regressions live in `tests/test_boundary.py`.
 - **Anchor every regex alternative on both sides**, and remember a rule
   edit does not relabel existing rows (the builder is incremental) —
   `shelfmark reclassify` exists for that. See `rules.py` header.
@@ -130,8 +135,11 @@ A constraint on the code, not a slogan:
 - `config.example.toml` is generated from `CONFIG_TEMPLATE` in
   `src/shelfmark/cli.py`. Edit the template, then regenerate:
   `python -c "from shelfmark.cli import CONFIG_TEMPLATE as t; open('config.example.toml','w').write(t)"`
-- The `mcp>=1.2,<2` pin is load-bearing (mcp 2.x removed
-  `mcp.server.fastmcp`). Lifting it means porting `server.py` first.
+- **Both `mcp` bounds are tested, not guessed.** 2.x removed
+  `mcp.server.fastmcp`, so the ceiling means porting `server.py` first;
+  1.8–1.13 raise `TypeError` on import against current pydantic-settings,
+  which is why the floor is 1.14. CI runs floor and latest. Re-measure
+  before moving either — a range is a claim about versions you have run.
 
 ## Releasing
 

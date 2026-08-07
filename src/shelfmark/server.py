@@ -22,14 +22,24 @@ import re
 import sqlite3
 import sys
 import threading
+import warnings
 from datetime import datetime, timezone
 
-from mcp.server.fastmcp import FastMCP
+# pydantic-settings emits an IncompleteFieldDefinitionWarning about mcp's
+# own `lifespan` field, when the Settings model is built. Upstream and
+# harmless, but for a stdio server it lands in the client's log on every
+# startup, where it reads as a fault in this tool. Narrow filter: this one
+# message, only around mcp's import and construction.
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", message=r".*incomplete definition.*")
+    from mcp.server.fastmcp import FastMCP
 
 from . import config as config_mod
 from .config import Config
 
-mcp = FastMCP("shelfmark")
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", message=r".*incomplete definition.*")
+    mcp = FastMCP("shelfmark")
 
 _CFG: Config | None = None
 
@@ -796,6 +806,12 @@ def corpus_stats() -> str:
 
     Call this first in a new session to know what is available before
     searching.
+
+    RESTRICTED material is reported ONLY as a corpus-wide total. Its roots,
+    folders, per-root counts and filenames are all withheld: naming the
+    folder that holds your secrets is a smaller leak than naming the
+    secrets, but it is still a leak, and this is the tool an agent calls
+    first.
     """
     con = connect()
     try:
@@ -803,12 +819,21 @@ def corpus_stats() -> str:
             return con.execute(sql, params).fetchall()
 
         total = q("SELECT count(*) c, sum(bytes) b FROM files")[0]
+        # RESTRICTED rows are excluded, not counted. A per-root breakdown
+        # says where sealed material lives and how much of it there is, and
+        # a root that holds nothing else is named by its mere presence in
+        # the table -- so a caller learns "there is a Vault folder with two
+        # secrets in it" without seeing a filename. The corpus-wide total is
+        # kept, because "some material is withheld" is honest and carries no
+        # location.
         roots = q("""SELECT root, count(*) n,
-                       sum(rights='OWN' AND confidential=0) own_open,
-                       sum(rights='RESTRICTED') restricted
-                     FROM files GROUP BY root ORDER BY n DESC""")
+                       sum(rights='OWN' AND confidential=0) own_open
+                     FROM files WHERE rights != 'RESTRICTED'
+                     GROUP BY root HAVING n > 0 ORDER BY n DESC""")
+        sealed = q("SELECT count(*) n FROM files WHERE rights='RESTRICTED'")[0]["n"]
         rights = q("""SELECT rights, confidential, count(*) n FROM files
-                      GROUP BY 1,2 ORDER BY n DESC""")
+                      WHERE rights != 'RESTRICTED'
+                      GROUP BY rights, confidential ORDER BY n DESC""")
         dts = q("""SELECT COALESCE(NULLIF(doc_type,''),'—') d, count(*) n
                    FROM files GROUP BY 1 ORDER BY n DESC LIMIT 12""")
         cts = q("""SELECT COALESCE(NULLIF(context_type,''),'—') c, count(*) n
@@ -830,10 +855,10 @@ def corpus_stats() -> str:
            fresh,
            "",
            "## Roots",
-           f"{'root':<22}{'files':>8}{'own+shareable':>15}{'restricted':>12}"]
+           f"{'root':<22}{'files':>8}{'own+shareable':>15}"]
     for r in roots:
         out.append(f"{(r['root'] or '—'):<22}{r['n']:>8,}"
-                   f"{r['own_open']:>15,}{r['restricted']:>12,}")
+                   f"{r['own_open']:>15,}")
     out += ["", "## Rights × confidential"]
     for r in rights:
         if r["rights"] == "UNKNOWN":
@@ -842,6 +867,10 @@ def corpus_stats() -> str:
         else:
             leave = "may leave" if not r["confidential"] else "must not leave"
         out.append(f"  {r['rights']:<12} {leave:<18} {r['n']:>7,}")
+    if sealed:
+        # Count only. No root, no folder, no name -- an aggregate says the
+        # policy is doing something without saying what it is protecting.
+        out.append(f"  {'SEALED':<12} {'withheld entirely':<18} {sealed:>7,}")
     out += ["", "## doc_type (what files ARE)",
             "  " + ", ".join(f"{r['d']} {r['n']:,}" for r in dts),
             "", "## context_type (what FOLDERS are for)",

@@ -11,6 +11,14 @@ What is indexed: paths, filenames, sizes, OOXML properties (author, company,
 title, slide titles), content hashes, and classification facets derived from
 your own rules.
 
+**Your roots are the trust boundary.** Symlinks are not followed — a link
+inside a root reads as an ordinary file and would otherwise walk straight
+out of the tree you configured, and `hash` opens files. Skipped links are
+reported, never silently dropped. To index another tree, add it as an extra
+root: the boundary widens by saying so in config, not by planting a link.
+The catalogue itself is refused inside *any* root, because a database that
+indexes itself grows on every refresh.
+
 Slide titles come from the deck's own properties, and most decks never set
 them: PowerPoint files in `Slide 1 … Slide 12`, generator libraries
 (pptxgenjs, python-pptx, HTML→deck exporters) do the same, and PowerPoint's
@@ -27,8 +35,13 @@ original slide numbers.
   (`context_type`), and who may reuse it (`rights`) from whether it may
   leave (`confidential`).
 - **Governance enforced in the server, not the prompt.** Files matching
-  your private/secret patterns are RESTRICTED: never returned by any tool,
-  no argument overrides it, and the DB is opened read-only.
+  your private/secret patterns are RESTRICTED: no tool returns their path,
+  name, metadata or content, no argument overrides it, they are never
+  opened for hashing, and the DB is opened read-only. `corpus_stats()`
+  reports a single corpus-wide count of sealed files and nothing else about
+  them — not which root, not which folder. That count is the one thing
+  disclosed, deliberately: silence about it would misrepresent the size of
+  the corpus.
 - **Current without being told, honest when it is not.** The MCP server
   refreshes its own index while it runs, so nobody schedules anything and
   no agent has to remember. When it cannot — never refreshed, refresh

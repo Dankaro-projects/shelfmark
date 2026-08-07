@@ -23,3 +23,23 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: uv run --group dev pytest -q
+
+  # The declared dependency range is a claim about versions we have run.
+  # 1.8-1.13 raise TypeError against current pydantic-settings; the floor
+  # exists because of that, and this is what keeps it honest.
+  mcp-range:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mcp: ["1.14.0", ""]          # declared floor, and whatever is latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: import and serve under mcp ${{ matrix.mcp || 'latest' }}
+        run: |
+          if [ -n "${{ matrix.mcp }}" ]; then PIN="--with mcp==${{ matrix.mcp }}"; else PIN=""; fi
+          uv run --isolated $PIN --with-editable . python -c "
+          import shelfmark.server as s
+          assert s.mcp is not None
+          print('server constructed OK')"

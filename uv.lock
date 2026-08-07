@@ -893,7 +893,7 @@ wheels = [
 
 [[package]]
 name = "shelfmark"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
@@ -915,7 +915,7 @@ dev = [
 requires-dist = [
     { name = "extract-msg", marker = "extra == 'email'" },
     { name = "libpff-python", marker = "extra == 'email'" },
-    { name = "mcp", specifier = ">=1.2,<2" },
+    { name = "mcp", specifier = ">=1.14,<2" },
 ]
 provides-extras = ["email"]
 
