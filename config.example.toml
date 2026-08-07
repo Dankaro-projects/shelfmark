@@ -80,6 +80,12 @@ disable = []
 rules = []
 disable = []
 
+[misses]
+# Searches that found nothing are logged locally so you can tell a coverage
+# gap from a phrasing problem — see `shelfmark misses`. Never sent anywhere.
+enabled = true
+keep = 500                   # ring size; older entries are dropped
+
 [refresh]
 max_age_seconds = 900        # --if-needed refreshes when older than this
 prune_ceiling_pct = 2        # refuse to prune more than this share of rows

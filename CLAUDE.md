@@ -51,9 +51,13 @@ A constraint on the code, not a slogan:
   you, and explaining a refused prune is more code than `exit 1`. That is
   the trade this project accepts, every time.
 - **The refusals are the shape of the bet, not a backlog.** "No embeddings"
-  and "no content extraction" (README, *What is deliberately not built*)
-  are decisions. Revisit them when real misses cluster into evidence —
-  never because a competitor lists the feature.
+  and "no content extraction" are decisions. Revisit them when real misses
+  cluster into evidence — never because a competitor lists the feature.
+  `misses.py` is what supplies that evidence, and the load-bearing part is
+  the reachable/unreachable split: a raw count of misses only proves people
+  search. Function words are stopped for the same reason — "said" can never
+  be in a filename, so leaving it in votes for content extraction on the
+  strength of grammar.
 
 ## Non-negotiables
 

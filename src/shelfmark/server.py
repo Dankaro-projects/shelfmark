@@ -341,6 +341,20 @@ def search_docs(
         return err
 
     if not rows:
+        # Recorded here and NOT on the earlier returns: a bad filter, an
+        # impossible year range and an FTS error are already explained to
+        # the caller and are not evidence about what the corpus lacks.
+        # Logging them would bury the real misses in noise.
+        try:
+            from . import misses
+            misses.record(cfg(), query, filters={
+                "root": root, "client": client, "doc_type": doc_type,
+                "context_type": context_type, "path_contains": path_contains,
+                "shareable_only": shareable_only, "own_only": own_only,
+                "year_from": year_from, "year_to": year_to,
+            }, stale=index_warning() is not None)
+        except Exception:                            # noqa: BLE001
+            pass                                     # never fail a search
         # Where a stale index does its worst: an empty result reads as
         # "you do not have this".
         return with_warning(

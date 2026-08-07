@@ -122,6 +122,10 @@ class Config:
     coverage_floor_pct: int = 80
     stale_after_hours: float = 3.0
 
+    # miss log — local only, never sent anywhere
+    misses_enabled: bool = True
+    misses_keep: int = 500
+
     # server behaviour
     max_limit: int = 100
     body_chars: int = 1500
@@ -152,6 +156,10 @@ class Config:
     @property
     def lock_dir(self) -> Path:
         return self.db.parent / ".refresh.lock"
+
+    @property
+    def miss_log(self) -> Path:
+        return self.db.parent / "misses.jsonl"
 
     @property
     def log_path(self) -> Path:
@@ -235,6 +243,8 @@ def load(explicit: str | os.PathLike | None = None) -> Config:
                 f"refresh. Put it outside every indexed tree (and outside "
                 f"any cloud-synced folder)."
             )
+
+    misses = data.get("misses", {})
 
     # ---- scanning -------------------------------------------------------
     scan = data.get("scan", {})
@@ -332,6 +342,8 @@ def load(explicit: str | os.PathLike | None = None) -> Config:
         prune_min_rows=int(rf.get("prune_min_rows", 50)),
         coverage_floor_pct=int(rf.get("coverage_floor_pct", 80)),
         stale_after_hours=float(rf.get("stale_after_hours", 3)),
+        misses_enabled=bool(misses.get("enabled", True)),
+        misses_keep=int(misses.get("keep", 500)),
         max_limit=int(sv.get("max_limit", 100)),
         body_chars=int(sv.get("body_chars", 1500)),
         cards_min_files=int(cd.get("min_files", 100)),

@@ -92,6 +92,12 @@ disable = []
 rules = []
 disable = []
 
+[misses]
+# Searches that found nothing are logged locally so you can tell a coverage
+# gap from a phrasing problem — see `shelfmark misses`. Never sent anywhere.
+enabled = true
+keep = 500                   # ring size; older entries are dropped
+
 [refresh]
 max_age_seconds = 900        # --if-needed refreshes when older than this
 prune_ceiling_pct = 2        # refuse to prune more than this share of rows
@@ -184,6 +190,20 @@ def cmd_refresh(args) -> int:
 def cmd_review(args) -> int:
     from . import review
     return review.run(_load(args), apply=args.apply, limit=args.limit)
+
+
+def cmd_misses(args) -> int:
+    from . import misses
+    cfg = _load(args)
+    if args.clear:
+        try:
+            cfg.miss_log.unlink()
+            print("Miss log cleared.")
+        except FileNotFoundError:
+            print("No miss log to clear.")
+        return 0
+    print(misses.report(cfg, limit=args.limit))
+    return 0
 
 
 def cmd_reclassify(args) -> int:
@@ -342,6 +362,14 @@ def main(argv=None) -> None:
     p.add_argument("--limit", type=int, default=12,
                    help="how many subtrees to ask about (default 12)")
     p.set_defaults(fn=cmd_review)
+
+    p = sub.add_parser("misses",
+                       help="what searches found nothing — the evidence for "
+                            "whether content extraction is worth building")
+    p.add_argument("--clear", action="store_true", help="delete the miss log")
+    p.add_argument("--limit", type=int, default=15,
+                   help="how many terms to list (default 15)")
+    p.set_defaults(fn=cmd_misses)
 
     p = sub.add_parser("reclassify",
                        help="re-apply classification rules to catalogued "

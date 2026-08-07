@@ -414,11 +414,49 @@ It gives agents a better starting point.
 
 These are decisions, not a backlog:
 
-- **No embeddings.** Metadata FTS + facets first. Use it, note what you
-  *couldn't* find, and let real misses decide. If misses cluster on "I know
-  what it said, not what it was called", the fix is content extraction, not
-  embeddings.
+- **No embeddings.** Metadata FTS + facets first.
 - **No content extraction.** Body text stays out of the index by design.
+
+### Letting real misses decide
+
+Those two refusals should be revisited on evidence, not on a competitor's
+feature list — so shelfmark records the searches that found nothing, locally,
+and tells you what they mean:
+
+```sh
+shelfmark misses            # the evidence
+shelfmark misses --clear    # forget it
+```
+
+The report answers one question: **could metadata search ever have found
+it?** A term appearing in no filename, path, author, title or slide title
+was unreachable however it was phrased — that is the shape content
+extraction fixes. A term that *is* in your corpus but still missed was a
+phrasing or filter problem, which is a different repair. Without that split,
+a miss log only proves that people search.
+
+```
+73 searches returned nothing   (2026-06-02 → 2026-08-07)
+
+Most-missed terms:
+    9  abatement
+    7  timeline      (nowhere in your metadata)
+    6  commitments   (nowhere in your metadata)
+
+41 of 62 distinct terms (66%) appear nowhere in your filenames,
+paths, authors, titles or slide titles.
+
+These are mostly things metadata search could NEVER have found, however
+phrased. That is the pattern the README says should reopen content
+extraction — not embeddings.
+```
+
+Bad filters, impossible year ranges and searches against a stale index are
+**not** recorded as misses: each is already explained to the caller, and
+logging them would bury the real signal. It stays local, is capped, and
+never leaves your machine. Turn it off with `[misses] enabled = false` —
+recording your own search terms is a privacy-affecting choice, and whether
+that is acceptable genuinely varies by corpus.
 
 ## FAQ
 
