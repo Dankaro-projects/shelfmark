@@ -91,6 +91,9 @@ A constraint on the code, not a slogan:
   prefixes its answer — not just `corpus_stats()`. Adding a tool means
   wiring it through `with_warning()`. Staleness the engine can heal is
   healed; staleness it cannot is announced. Neither is ever left silent.
+- **The version is read, never restated.** `__init__.__version__` comes from
+  installed metadata; pyproject is the single source of truth. 0.2.0 shipped
+  with a literal saying 0.1.0, so `--version` lied to anyone filing a bug.
 - **Never name one cause for an ambiguous signal.** A short walk is either
   an unreadable root or a real deletion and the check cannot tell — so it
   reports both and offers `--force`. Same for placeholder slide titles:
@@ -136,6 +139,11 @@ A constraint on the code, not a slogan:
   message objects. They carry exactly the attribute surface the code
   touches — that surface is the contract, so widen the stand-ins when the
   extractor starts reading a new field.
+- **`misses.py` is what makes the roadmap evidential.** The load-bearing
+  part is the reachable/unreachable split — a raw count of misses only
+  proves people search. Function words are stopped for the same reason:
+  "said" can never be in a filename, so leaving it in votes for content
+  extraction on the strength of grammar.
 - `config.example.toml` is generated from `CONFIG_TEMPLATE` in
   `src/shelfmark/cli.py`. Edit the template, then regenerate:
   `python -c "from shelfmark.cli import CONFIG_TEMPLATE as t; open('config.example.toml','w').write(t)"`
@@ -150,25 +158,57 @@ A constraint on the code, not a slogan:
 MIT, published to PyPI as **`shelfmark`**. Cut a release by tagging:
 
 ```sh
-# bump version in pyproject.toml first — the tag must match it
-git tag v0.1.0 && git push origin v0.1.0
+# bump version in pyproject.toml AND add a CHANGELOG entry first --
+# the tag must match the packaged version or the workflow refuses
+git tag v0.2.2 && git push origin v0.2.2
 ```
 
 `.github/workflows/release.yml` builds, runs the release gates, and uploads
 via **Trusted Publishing** (OIDC — there is no PyPI token in this repo).
-One-time setup: add `shelfmark` as a trusted publisher on PyPI for this
-repo, workflow `release.yml`, environment `pypi`.
+The trusted publisher is registered on PyPI for this repo, workflow
+`release.yml`, environment `pypi`. It is bound to the project NAME: renaming
+the project or the repo means registering a new one, which is how the first
+release failed three times.
 
 **A published version is permanent.** It can be yanked, never unpublished,
 and mirrors copy it within minutes — so everything checkable is checked
 before the upload step, not after:
 
 - the tag matches the packaged version
+- the suite passes
 - the sdist carries no `CLAUDE.md`, no `*.db`, no `config.toml`, no
   `REFRESH_STATUS.json` — this file is internal and stays out of releases
 - the wheel installs into a clean venv and its entry points run
 
-`[tool.hatch.build.targets.sdist]` uses `only-include`, so a new file at
-the repo root is excluded until someone opts it in. The workflow's grep is
-the assertion behind that mechanism; keep both. Rehearse anything unusual
-on **TestPyPI** first — that is the only place a mistake is free.
+`[tool.hatch.build.targets.sdist]` uses `only-include`, so a new file at the
+repo root is excluded until someone opts it in. `tests/` ships deliberately:
+a declared suite that cannot be re-run from the release artifact is a claim
+the recipient has to take on trust. The workflow's grep is the assertion
+behind the mechanism; keep both.
+
+Rehearse anything unusual on **TestPyPI** first — the only place a mistake
+is free.
+
+## Repository protection
+
+Enabled on the public repo, all free, all previously off:
+
+- secret scanning + **push protection** (blocks a credential before it
+  reaches a public remote — this repo indexes personal documents, and the
+  pre-publication history scan was one scan at one moment)
+- Dependabot alerts + automated security fixes
+- `delete_branch_on_merge`
+
+A **`protect main` ruleset** blocks force-push and deletion, with **no
+bypass actors** — so a future history rewrite needs the rule temporarily
+disabled, and that friction is deliberate. Verified against the live remote:
+a genuine non-fast-forward is rejected with GH013.
+
+Status checks are deliberately **not** required. That would force a pull
+request for every change, which at this size is friction rather than safety;
+CI already runs on every push. Revisit if the project gains contributors.
+
+Security reports go through a private advisory — see `SECURITY.md`, which
+also states what counts as a vulnerability here (escaping the roots,
+disclosing RESTRICTED material, writing through the read-only handle, any
+network call at all) and what does not.
