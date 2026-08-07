@@ -495,8 +495,27 @@ def ingest(cfg: Config, prefix: str, era: str = "archive",
         print(f"shelfmark: no such folder under the primary root: {prefix}",
               file=sys.stderr)
         return 2
-    msgs = sorted(base.rglob("*.msg"))
-    psts = sorted(base.rglob("*.pst"))
+    # Privacy rules apply here too. The file catalogue never opens a
+    # RESTRICTED row, but ingestion globs the disk directly -- so without
+    # this an archive sitting in a subtree the operator marked private is
+    # read, and its bodies indexed, by a feature that never consulted the
+    # classification.
+    def sealed(p: Path) -> bool:
+        try:
+            rel = str(p.relative_to(cfg.primary_root.path))
+        except ValueError:
+            rel = str(p)
+        return bool(cfg.secret_re.search(rel)
+                    or (cfg.private_re and cfg.private_re.search(rel)))
+
+    all_msgs = sorted(base.rglob("*.msg"))
+    all_psts = sorted(base.rglob("*.pst"))
+    msgs = [p for p in all_msgs if not sealed(p)]
+    psts = [p for p in all_psts if not sealed(p)]
+    skipped = (len(all_msgs) - len(msgs)) + (len(all_psts) - len(psts))
+    if skipped:
+        print(f"  skipped {skipped} archive(s) under private/secret paths",
+              file=sys.stderr)
     print(f"scope: {prefix}\n  .msg files: {len(msgs)}\n  .pst files: {len(psts)}",
           file=sys.stderr)
     print(f"  bodies: {'YES' if bodies else 'headers only'}\n", file=sys.stderr)

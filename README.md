@@ -1,57 +1,168 @@
 # shelfmark
 
-A local, privacy-first document catalogue with an MCP server. Point it at
-your document tree(s) and it gives Claude Code — or any MCP client —
-structured, governed search over what you have: by filename, author, slide
-title, document type, folder purpose, client, and year.
+**Give AI agents the right context, not your entire filesystem.**
 
-**Metadata only, by design.** No document body text is ever extracted or
-indexed, so nothing in the catalogue can leak file *content* into a prompt.
-What is indexed: paths, filenames, sizes, OOXML properties (author, company,
-title, slide titles), content hashes, and classification facets derived from
-your own rules.
+Shelfmark turns years of scattered documents into a governed context map for
+AI agents. An agent can discover what exists, understand what kind of
+material it is, and select the documents relevant to a task — before
+spending context opening files.
 
-**Your roots are the trust boundary.** Symlinks are not followed — a link
-inside a root reads as an ordinary file and would otherwise walk straight
-out of the tree you configured, and `hash` opens files. Skipped links are
-reported, never silently dropped. To index another tree, add it as an extra
-root: the boundary widens by saying so in config, not by planting a link.
-The catalogue itself is refused inside *any* root, because a database that
-indexes itself grows on every refresh.
+No document migration. No duplicated content store. No need for a perfect
+folder structure.
 
-Slide titles come from the deck's own properties, and most decks never set
-them: PowerPoint files in `Slide 1 … Slide 12`, generator libraries
-(pptxgenjs, python-pptx, HTML→deck exporters) do the same, and PowerPoint's
-own filler is `PowerPoint Presentation`. Those are dropped rather than
-indexed — a deck with no real headings reports none, instead of twelve
-titles it does not have. Genuine titles on the same deck are kept, at their
-original slide numbers.
+```sh
+uv tool install shelfmark          # or: pipx install shelfmark
+```
 
-## Why not just grep / Spotlight / embeddings?
+*Local by design · metadata only · governed discovery · built for MCP*
 
-- **Structure, not just matching.** `browse_folder` answers "what do I
-  have here" — which full-text search structurally cannot. Facets separate
-  what a file *is* (`doc_type`) from what its folder is *for*
-  (`context_type`), and who may reuse it (`rights`) from whether it may
-  leave (`confidential`).
-- **Governance enforced in the server, not the prompt.** Files matching
-  your private/secret patterns are RESTRICTED: no tool returns their path,
-  name, metadata or content, no argument overrides it, they are never
-  opened for hashing, and the DB is opened read-only. `corpus_stats()`
-  reports a single corpus-wide count of sealed files and nothing else about
-  them — not which root, not which folder. That count is the one thing
-  disclosed, deliberately: silence about it would misrepresent the size of
-  the corpus.
-- **Current without being told, honest when it is not.** The MCP server
-  refreshes its own index while it runs, so nobody schedules anything and
-  no agent has to remember. When it cannot — never refreshed, refresh
-  failing, clock unusable — *every* tool says so above its answer, and
-  `corpus_stats()` compares index against disk in full. An index that
-  silently stops updating still answers confidently from a frozen
-  snapshot, which is worse than no index at all.
-- **Identifier-safe search.** Real corpora are full of `ACME-2026-014`
-  style identifiers whose hyphens break naive FTS. Queries are quoted and
-  retried so a stray quote returns results, not a parser error.
+---
+
+## Your best knowledge is probably sitting in your folders
+
+Reports, presentations, models, research, proposals and working documents
+accumulate over years. Some are carefully organised. Others sit inside
+crowded project folders, old archives, download directories, or collections
+that made sense only at the time.
+
+The value is still there. The problem is that agents cannot use what they
+cannot discover — and giving an agent unrestricted filesystem access does
+not solve that. It transfers the work of finding, interpreting and filtering
+thousands of files into the context window.
+
+Shelfmark gives the agent a map first.
+
+## Context is the scarce resource
+
+An agent does not need every document. It needs to know what exists, what is
+likely to matter, where it came from, and whether it should be used at all.
+
+Shelfmark is a discovery layer between the agent and your files. The agent
+searches the catalogue, narrows the field, and requests only the material the
+task actually needs — so an existing document estate becomes working context
+without turning the filesystem into one enormous prompt.
+
+## A catalogue of pointers, not another document store
+
+Shelfmark builds a local SQLite catalogue of **references and derived
+metadata**: paths, filenames, formats, sizes, document types, authors,
+dates, classifications, selected Office properties, presentation titles, and
+optional content hashes.
+
+It does not copy your documents into the catalogue. It does not index
+document body text. It does not create a second repository to govern,
+synchronise and maintain. Your files stay where they are; the catalogue
+points at them and describes what can be established from their metadata.
+
+**Finding a document does not expose its contents.**
+
+## Turn messy folders into usable agent context
+
+Shelfmark does not require a designed information architecture. Point it at
+accumulated project files, forgotten archives, or folders where documents
+have simply been dropped over the years.
+
+It builds an inventory from signals that already exist — filenames,
+extensions, paths, authorship, dates, Office properties, and your own
+classification rules — creating a virtual structure across the material.
+Agents can then search by document type, client, project, purpose, author,
+year or location without anything being moved or renamed.
+
+A messy folder can become navigable even when it never becomes tidy.
+
+Shelfmark also stays honest about the limits of metadata. A file called
+`final7.pdf` with no useful properties cannot reveal its meaning without
+someone reading it. Shelfmark reports what is known rather than inventing
+certainty — the same reason it drops placeholder slide titles instead of
+listing twelve headings a deck does not have.
+
+## Built for selective context
+
+- **Discover before opening.** Search thousands of references before
+  deciding which few files deserve attention.
+- **Preserve the context window.** Concise catalogue results instead of
+  whole documents that may not be relevant.
+- **Build on previous work.** Reports, models, proposals, research and
+  methods stay discoverable across new tasks and future engagements.
+- **Keep provenance visible.** Path, date, author, document type and
+  surrounding context help an agent judge relevance.
+- **Reduce blind exploration.** Structured search instead of repeatedly
+  walking directories and inspecting files one at a time.
+- **Separate discovery from access.** Shelfmark helps identify material;
+  opening the original remains a separate, controllable decision.
+
+## Your roots are the trust boundary
+
+Shelfmark walks only the roots you configure.
+
+**Symlinks are not followed.** A link inside a root reads as an ordinary
+file and would otherwise walk straight out of the tree you configured — and
+`hash` opens files. Skipped links are reported, never silently dropped. To
+index another tree, add it as an extra root: the boundary widens by saying
+so in config, not by planting a link.
+
+The catalogue is refused inside *any* root, because a database that indexes
+itself grows on every refresh. Both checks compare resolved paths, so `..`
+and a symlinked root cannot slip past them.
+
+## Governance belongs in the retrieval layer
+
+Not every useful document should be treated the same way. Shelfmark
+separates two questions that usually get confused:
+
+- **Who owns or may reuse this?** → `rights`: `OWN` / `REFERENCE` /
+  `RESTRICTED`
+- **May this document leave its current context?** → `confidential`: `0` / `1`
+
+A method may belong to you while the client deliverable containing it stays
+confidential. Modelling the two separately lets agents discover reusable
+knowledge without treating everything discoverable as freely shareable.
+
+Files matching your private/secret patterns become RESTRICTED: no tool
+returns their path, name, metadata or content, no argument overrides it,
+they are never opened for hashing, and the database is opened read-only.
+`corpus_stats()` reports a single corpus-wide count of sealed files and
+nothing else about them — not which root, not which folder. That count is
+the one thing disclosed, deliberately: silence about it would misrepresent
+the size of the corpus.
+
+Governance is applied by the catalogue, not left to the wording of a prompt.
+
+## Know whether the map can be trusted
+
+A search result is only useful if the agent knows the catalogue is current.
+
+The MCP server keeps its own index current while it runs, so nothing has to
+be scheduled and no agent has to remember. When it cannot — never built,
+stale, a failed refresh, a clock it cannot reason from, or an index that no
+longer agrees with the filesystem — **every tool says so above its answer**,
+and `corpus_stats()` compares index against disk in full.
+
+An old snapshot is never presented as complete knowledge.
+
+## Designed for knowledge-intensive work
+
+| | |
+|---|---|
+| **Consultants and advisors** | Find previous analyses, proposals, frameworks and deliverables without exposing unrelated client material. |
+| **Researchers and analysts** | Navigate large collections of reports, datasets and source material through consistent metadata. |
+| **Product and strategy teams** | Reconnect decisions, research, roadmaps and previous thinking across projects and time. |
+| **Studios and independents** | Turn years of accumulated work into reusable context while keeping control over client files and IP. |
+| **Agent builders** | Give local agents a governed discovery layer over MCP. |
+
+## How it works
+
+1. **Point Shelfmark at your existing folders.** One or more roots. Files
+   stay where they are.
+2. **Build the local catalogue.** It walks the permitted roots, extracts
+   available metadata, applies classification rules, and writes references
+   into SQLite.
+3. **Review ownership and confidentiality.** `shelfmark review` asks a few
+   questions about your own folders and writes the answers to config.
+4. **Connect an MCP-compatible agent.** It searches, browses and inspects
+   catalogue records through structured tools.
+5. **Retrieve only what matters.** The agent identifies the relevant
+   artefacts before any separate content access takes place.
 
 ## Install
 
@@ -83,6 +194,20 @@ claude mcp add shelfmark -s user -- shelfmark-mcp
 Then in a session: `corpus_stats()` to orient, `browse_folder()` to
 navigate, `search_docs()` / `get_file()` to find and inspect.
 
+## MCP tools
+
+| Tool | What it answers |
+|---|---|
+| `corpus_stats()` | What is here overall + an honest freshness line. Call first. |
+| `browse_folder(prefix)` | What is inside a folder: counts, sizes, facet mix. |
+| `search_docs(query, …)` | Metadata full-text search with facet filters. |
+| `get_file(path)` | Full record for one file: rights, authorship, slide titles, identical copies, on-disk status. |
+| `search_emails(query, …)` | Full-text over an ingested .pst/.msg email archive (optional). |
+
+Result lists always say when they are cut (`showing 100 of 195 …`), unknown
+filter values are reported as bad filters with suggestions (never as an
+empty corpus), and excerpts mark their truncation point.
+
 ## Configuration
 
 Everything corpus-specific lives in `config.toml` — the code ships with
@@ -93,25 +218,18 @@ neutral defaults only. Resolution order: `--config` flag →
 | Section | What it controls |
 |---|---|
 | `[[roots]]` | The trees to index. One unlabelled primary root; extra roots get a label prefix. |
-| `[index]` | Where the SQLite catalogue lives. **Must be outside every indexed root and outside cloud-synced folders** — it is a mutating binary DB. |
+| `[index]` | Where the SQLite catalogue lives. **Must be outside every indexed root and outside cloud-synced folders** — it is a mutating binary DB, and this is enforced. |
 | `[privacy]` | Regexes for secrets and private subtrees → RESTRICTED. Built-ins already cover `.env`, key/cert files, `id_rsa`, backup codes, identity documents. |
 | `[authors]` | Regexes for your own name/company, for client authors, and for generator tools — drives OWN/REFERENCE classification from OOXML authorship. |
 | `[rights]` | Path-prefix rules for the two-axis model: `rights` (may I reuse it) × `confidential` (may it leave). |
 | `[facets]` | Which top-level folders count as work/personal; where client/project names sit in the path. |
 | `[doc_types]` / `[context_types]` | Extra filename/folder rules, checked before the built-in bilingual (EN/ES) defaults; built-ins can be disabled by name. |
 
-### The two-axis rights model
+### What `shareable_only` means
 
-`rights` and `confidential` are separate axes, deliberately:
-
-- `rights` — may I **reuse** it? `OWN` / `REFERENCE` / `RESTRICTED`
-- `confidential` — may it **leave**? `0` / `1`
-
-A deck you authored for a client is `OWN` (the method is yours) *and*
-confidential (that artefact does not leave). Conflating the two is how a
-corpus ends up mostly-RESTRICTED and unsearchable. `shareable_only=True`
-means *positively* classified: `confidential=0 AND rights IN
-(OWN, REFERENCE)` — never-reviewed files are held back.
+`shareable_only=True` means *positively* classified: `confidential=0 AND
+rights IN (OWN, REFERENCE)`. Never-reviewed files are held back — unreviewed
+is not the same as cleared.
 
 ### Getting rights set: `shelfmark review`
 
@@ -266,32 +384,95 @@ shelfmark hash                   # reads every unhashed, non-sensitive file
 shelfmark hash --limit 2000      # chip away at it
 ```
 
-Sensitive rows are never opened. On cloud-synced trees, dataless
-placeholder files are skipped — reading one silently yields the hash of the
-empty string, which would make distinct files look identical. Re-run after
-large materialisations.
+Sensitive rows are never opened, and neither are symlinks. On cloud-synced
+trees, dataless placeholder files are skipped — reading one silently yields
+the hash of the empty string, which would make distinct files look
+identical. Re-run after large materialisations.
 
-## MCP tools
+## What makes Shelfmark different
 
-| Tool | What it answers |
-|---|---|
-| `corpus_stats()` | What is here overall + an honest freshness line. Call first. |
-| `browse_folder(prefix)` | What is inside a folder: counts, sizes, facet mix. |
-| `search_docs(query, …)` | Metadata full-text search with facet filters. |
-| `get_file(path)` | Full record for one file: rights, authorship, slide titles, identical copies, on-disk status. |
-| `search_emails(query, …)` | Full-text over an ingested .pst/.msg email archive (optional). |
+- **Desktop search** helps a *person* find text inside files.
+- **Document management systems** require documents to be imported and
+  managed inside a new environment.
+- **Retrieval systems** parse, chunk and copy document content into search
+  indexes or vector stores.
+- **Filesystem tools** give an agent direct access and leave every discovery
+  decision to the agent.
 
-Result lists always say when they are cut (`showing 100 of 195 …`), unknown
-filter values are reported as bad filters with suggestions (never as an
-empty corpus), and excerpts mark their truncation point.
+Shelfmark sits at a different layer: a local, governed, metadata-based map
+of the documents you already have, built specifically for selective agent
+context.
 
-## What is deliberately not built
+## What Shelfmark does not try to be
 
-- **No embeddings.** Metadata FTS + facets first; use it, note what you
+It is not a document management system. It does not replace your
+filesystem. It does not require embeddings. It does not reorganise your
+folders. It does not claim to understand content it has never read. And it
+does not assume every discoverable document is safe to share.
+
+It gives agents a better starting point.
+
+These are decisions, not a backlog:
+
+- **No embeddings.** Metadata FTS + facets first. Use it, note what you
   *couldn't* find, and let real misses decide. If misses cluster on "I know
   what it said, not what it was called", the fix is content extraction, not
   embeddings.
 - **No content extraction.** Body text stays out of the index by design.
+
+## FAQ
+
+**Does Shelfmark upload my documents?**
+No. It runs locally and builds a local catalogue. Document contents are not
+copied into it.
+
+**What does the catalogue contain?**
+File references and derived metadata: paths, filenames, types, sizes, dates,
+authors, classifications, selected Office properties, presentation titles,
+and optional content hashes.
+
+**Does it read document contents?**
+The file catalogue does not index body text. Two deliberate exceptions:
+`shelfmark hash` opens files to compute content hashes for duplicate
+detection, and optional **email ingestion** can index message bodies so
+`search_emails` works. Both are opt-in commands, both skip symlinks, and
+both honour your privacy rules — a file or archive matching your
+secret/private patterns is never opened by either.
+
+**Do I need to reorganise my folders first?**
+No. Better filenames and metadata improve classification, but no formal
+structure is required.
+
+**Can it understand every badly named file?**
+No. A file with a meaningless name and no embedded metadata stays hard to
+identify without reading it. Shelfmark says what it knows rather than
+guessing.
+
+**Why not just give an agent filesystem access?**
+Filesystem access lets an agent *open* files. Shelfmark helps it decide
+which files are worth opening — and which should stay out of its results
+entirely.
+
+**Why not a vector database?**
+A vector database is for semantic retrieval *from contents*. Shelfmark
+solves the earlier problem: discovering and governing what exists, before
+deciding what content should be processed at all. They are compatible; this
+one comes first.
+
+**Which agents can use it?**
+Any client that supports local MCP servers. Register with
+`claude mcp add shelfmark -s user -- shelfmark-mcp`, or point your client at
+the `shelfmark-mcp` command.
+
+## Development
+
+```sh
+uv run --group dev pytest        # the suite ships in the sdist, so this
+                                 # runs from the release artifact too
+```
+
+The test corpus — including its OOXML files — is synthesised on every run;
+no fixture binaries are committed and no real document is ever read.
 
 ## License
 

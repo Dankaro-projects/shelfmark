@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "shelfmark"
-version = "0.1.1"
+version = "0.1.2"
 description = "Local, privacy-first document catalogue + MCP server: metadata-only search over your file tree for Claude Code and other MCP clients."
 readme = "README.md"
 requires-python = ">=3.11"

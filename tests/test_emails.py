@@ -347,3 +347,50 @@ def test_an_empty_folder_is_not_an_error(cfg, capsys, no_email_deps):
     empty.mkdir(parents=True, exist_ok=True)
     assert emails.ingest(cfg, prefix="NoMail") == 0
     assert "nothing to ingest" in capsys.readouterr().err.lower()
+
+
+def test_ingestion_skips_archives_under_private_paths(cfg, capsys, monkeypatch):
+    """The file catalogue never opens a RESTRICTED row, but ingestion globs
+    the disk directly -- so it has to consult the same rules, or a feature
+    that indexes message BODIES quietly ignores the classification.
+
+    Driven with a stand-in reader so it runs without the optional deps: a
+    governance test that skips on most machines guards nothing."""
+    import re
+    import sys as _sys
+    import types
+
+    mail = cfg.primary_root.path / "Mail"
+    (mail / "Personal").mkdir(parents=True, exist_ok=True)
+    (mail / "work.msg").write_bytes(b"stub")
+    (mail / "Personal" / "private.msg").write_bytes(b"stub")
+    object.__setattr__(cfg, "private_re", re.compile(r"Personal/"))
+
+    monkeypatch.setitem(_sys.modules, "extract_msg", types.ModuleType("extract_msg"))
+    opened: list = []
+    monkeypatch.setattr(emails, "_ingest_msg",
+                        lambda con, c, paths, *a: opened.extend(paths))
+
+    emails.ingest(cfg, prefix="Mail")
+
+    names = [p.name for p in opened]
+    assert "work.msg" in names
+    assert "private.msg" not in names
+    assert "skipped 1 archive" in capsys.readouterr().err
+
+
+def test_a_secret_pattern_also_seals_an_archive(cfg, capsys, monkeypatch):
+    import sys as _sys
+    import types
+    mail = cfg.primary_root.path / "Mail"
+    mail.mkdir(parents=True, exist_ok=True)
+    (mail / "id_rsa.msg").write_bytes(b"stub")     # matches the built-in secrets
+    (mail / "ordinary.msg").write_bytes(b"stub")
+
+    monkeypatch.setitem(_sys.modules, "extract_msg", types.ModuleType("extract_msg"))
+    opened: list = []
+    monkeypatch.setattr(emails, "_ingest_msg",
+                        lambda con, c, paths, *a: opened.extend(paths))
+
+    emails.ingest(cfg, prefix="Mail")
+    assert [p.name for p in opened] == ["ordinary.msg"]
