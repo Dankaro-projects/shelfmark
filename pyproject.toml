@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "shelfmark"
-version = "0.2.0"
+version = "0.2.1"
 description = "Give AI agents the right context, not your entire filesystem. A local, governed, metadata-only catalogue of the documents you already have — built for MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -68,4 +68,5 @@ packages = ["src/shelfmark"]
 # `tests` ships: a declared test suite that cannot be run from the release
 # artifact is a claim the recipient has to take on trust.
 only-include = ["src/shelfmark", "tests", "README.md", "LICENSE",
-                "config.example.toml", "pyproject.toml"]
+                "SECURITY.md", "CHANGELOG.md", "config.example.toml",
+                "pyproject.toml"]

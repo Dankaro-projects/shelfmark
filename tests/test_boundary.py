@@ -218,3 +218,18 @@ def test_the_operator_facing_stats_may_still_show_detail(vault):
         assert "RESTRICTED" in catalog.stats(con)
     finally:
         con.close()
+
+
+# ------------------------------------------------------------------ version
+
+def test_the_reported_version_matches_the_packaged_one():
+    """0.2.0 shipped while __init__ still said 0.1.0, so `--version` lied to
+    anyone filing a bug. Reading it from installed metadata makes the drift
+    structurally impossible; this catches a regression to a literal."""
+    import tomllib
+    from pathlib import Path
+    import shelfmark
+
+    root = Path(__file__).resolve().parent.parent
+    declared = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+    assert shelfmark.__version__ == declared
