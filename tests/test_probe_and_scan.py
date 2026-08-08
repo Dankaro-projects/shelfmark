@@ -32,14 +32,21 @@ def test_build_output_dirs_are_skipped_but_case_matters(cfg):
     root = cfg.primary_root.path
     (root / "build").mkdir()
     (root / "build" / "artefact.docx").write_text("machine output")
-    (root / "Build").mkdir()
-    (root / "Build" / "site_photos.docx").write_text("a person's folder")
+    # On a case-insensitive filesystem (the macOS and Windows default),
+    # "Build" IS "build" — there the case half of the claim is untestable,
+    # not false, so only the skip half is asserted. Probed, not assumed
+    # from the platform: both OSes can mount case-sensitive volumes.
+    case_sensitive = not (root / "BUILD").exists()
+    if case_sensitive:
+        (root / "Build").mkdir()
+        (root / "Build" / "site_photos.docx").write_text("a person's folder")
     catalog.build(cfg)
     from conftest import one
     assert one(cfg, "SELECT COUNT(*) FROM files"
                     " WHERE filename='artefact.docx'") == 0
-    assert one(cfg, "SELECT COUNT(*) FROM files"
-                    " WHERE filename='site_photos.docx'") == 1
+    if case_sensitive:
+        assert one(cfg, "SELECT COUNT(*) FROM files"
+                        " WHERE filename='site_photos.docx'") == 1
 
 
 def test_library_placeholders_are_dropped(built):
