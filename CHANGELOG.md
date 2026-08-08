@@ -2,6 +2,16 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.4.1 — 2026-08-09
+
+### Fixed
+- MCP registry publication: correct namespace casing in the README
+  ownership marker (`io.github.Dankaro-projects/…` — the registry matches
+  it case-sensitively against the published PyPI README), current schema
+  URL in `server.json`, and Go arch names in the publisher download. With
+  these, every release now lands on registry.modelcontextprotocol.io
+  automatically.
+
 ## 0.4.0 — 2026-08-09
 
 ### Added
