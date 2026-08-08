@@ -80,6 +80,70 @@ def test_init_stays_quiet_when_the_default_root_has_documents(tmp_path, home,
     assert "WARNING" not in err
 
 
+# ---------------------------------------------------- the interactive fix
+
+def probe(tmp_path, answer):
+    """Run the interactive probe against the config init just wrote, with a
+    canned answer, and return the resulting primary root."""
+    from shelfmark import config as config_mod
+    cfg_file = tmp_path / "cfg" / "config.toml"
+    cli._probe_written_root(cfg_file, ask=lambda prompt, default: answer)
+    return config_mod.load(cfg_file).primary_root.path
+
+
+def test_enter_accepts_the_best_candidate(tmp_path, home, capsys):
+    """Dummy-proof means the default answer is the right one: Enter takes
+    the top candidate the sweep proposed — the engine proposes with
+    evidence on screen, the operator decides by accepting it."""
+    paper = home / "Paperwork"
+    paper.mkdir()
+    for i in range(3):
+        (paper / f"invoice_{i}.docx").write_text("x")
+    run_init(tmp_path, capsys)
+    assert probe(tmp_path, "1") == paper
+    # and the config file itself carries the reversible, readable form
+    assert '"~/Paperwork"' in (tmp_path / "cfg" / "config.toml").read_text()
+
+
+def test_a_number_picks_that_candidate(tmp_path, home, capsys):
+    a, b = home / "Archive", home / "Paperwork"
+    for d, count in ((a, 2), (b, 5)):
+        d.mkdir()
+        for i in range(count):
+            (d / f"doc_{i}.docx").write_text("x")
+    run_init(tmp_path, capsys)
+    # Paperwork (5 docs) ranks 1, Archive (2 docs) ranks 2
+    assert probe(tmp_path, "2") == a
+
+
+def test_a_typed_path_is_used(tmp_path, home, capsys):
+    paper = home / "Paperwork"
+    paper.mkdir()
+    (paper / "doc.docx").write_text("x")
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+    run_init(tmp_path, capsys)
+    assert probe(tmp_path, str(other)) == other
+
+
+def test_keep_declines_the_proposal(tmp_path, home, capsys):
+    paper = home / "Paperwork"
+    paper.mkdir()
+    (paper / "doc.docx").write_text("x")
+    run_init(tmp_path, capsys)
+    assert probe(tmp_path, "k") == home / "Documents"
+
+
+def test_a_bad_answer_keeps_the_config_untouched(tmp_path, home, capsys):
+    """A typo must not write a root that does not exist — the config stays
+    on the announced default rather than inheriting the typo."""
+    paper = home / "Paperwork"
+    paper.mkdir()
+    (paper / "doc.docx").write_text("x")
+    run_init(tmp_path, capsys)
+    assert probe(tmp_path, "/no/such/folder") == home / "Documents"
+
+
 def test_init_does_not_follow_symlinks_out_of_the_probe(tmp_path, home,
                                                         capsys):
     """The roots are the trust boundary from the very first command."""

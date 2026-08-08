@@ -2,6 +2,26 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.4.0 — 2026-08-09
+
+### Added
+- **`shelfmark init` is now interactive when its guess misses.** If
+  `~/Documents` is absent or holds no documents and you are at a terminal,
+  init lists the home folders that *do* hold documents (with counts) and a
+  single answer — Enter for the best candidate, a number, a path, or `k`
+  to keep the default — rewrites the config's primary root. The engine
+  proposes with evidence on screen; the operator decides; the decision
+  lands in `config.toml` where editing a file reverses it. Non-interactive
+  runs (hooks, CI) keep the warning-only behaviour and never hang on a
+  prompt.
+- The repo now carries `server.json` and a workflow that publishes each
+  release to the official MCP registry (GitHub OIDC, no stored token —
+  mirroring the PyPI Trusted Publishing setup).
+
+### Changed
+- README: real captured install-to-connected transcript in the quickstart,
+  badges, and the MCP registry ownership marker.
+
 ## 0.3.0 — 2026-08-09
 
 ### Changed

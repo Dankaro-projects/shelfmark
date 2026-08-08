@@ -1,5 +1,10 @@
 # shelfmark
 
+[![PyPI](https://img.shields.io/pypi/v/shelfmark)](https://pypi.org/project/shelfmark/)
+[![CI](https://github.com/Dankaro-projects/shelfmark/actions/workflows/ci.yml/badge.svg)](https://github.com/Dankaro-projects/shelfmark/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/pypi/pyversions/shelfmark)](https://pypi.org/project/shelfmark/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 **Give AI agents the right context, not your entire filesystem.**
 
 Shelfmark turns years of scattered documents into a governed context map for
@@ -177,19 +182,56 @@ dependencies: `uv tool install "shelfmark[email]"`.
 
 ## Quickstart
 
-```sh
-shelfmark init                     # writes ~/.config/shelfmark/config.toml
-$EDITOR ~/.config/shelfmark/config.toml   # set your [[roots]]
-shelfmark refresh                  # first build (add --no-hash for a fast pass)
-shelfmark review                   # answer a few questions -> rights get set
-shelfmark stats                    # census of what it found
+Three commands, and `init` finds your documents for you — when the default
+root misses, it sweeps for the folders that do hold documents and one
+keypress fixes the config:
+
+```text
+$ shelfmark init
+Wrote ~/.config/shelfmark/config.toml
+
+WARNING: ~/Documents does not exist on this machine.
+
+These folders do hold documents:
+  1. ~/Paperwork  (~6 document files)
+  2. ~/Downloads  (~1 document file)
+Index which folder? [1] — a number, a path, or 'k' to keep ~/Documents:
+  Root set to ~/Paperwork. Edit ~/.config/shelfmark/config.toml any time.
+
+$ shelfmark refresh
+cataloguing ~/Paperwork -> ~/.local/share/shelfmark/catalog.db
+seen 6  new 6  updated 0  unchanged 0  rematerialised 0
+evicted 0  corrupt 0  restricted 0
+
+$ claude mcp add shelfmark -s user -- shelfmark-mcp
 ```
 
-Register with Claude Code:
+That's install to connected. The agent's first call then looks like this
+(a real `corpus_stats()` answer over the corpus above):
 
-```sh
-claude mcp add shelfmark -s user -- shelfmark-mcp
+```text
+# shelfmark corpus
+6 files · 0.0 GB
+✓ index fresh — matches disk, last refresh 0 min ago
+
+## Roots
+root                     files  own+shareable
+Clients                      4              0
+Decks                        2              0
+
+## Rights × confidential
+  REFERENCE    may leave                5
+  UNKNOWN      unreviewed → held        1
+
+## doc_type (what files ARE)
+  report 4, deck 2
 ```
+
+Optional but worth the five minutes: `shelfmark review` asks a few
+questions about your biggest unclassified subtrees and writes the answers
+to config, so rights stop being UNKNOWN; `shelfmark stats` prints the
+census any time; `shelfmark config` shows every rights rule in the order
+it is checked, with the number of files each one currently claims.
 
 Then in a session: `corpus_stats()` to orient, `browse_folder()` to
 navigate, `search_docs()` / `get_file()` to find and inspect.
@@ -515,3 +557,7 @@ no fixture binaries are committed and no real document is ever read.
 ## License
 
 MIT — see [LICENSE](LICENSE). Free to use, modify and redistribute.
+
+<!-- MCP registry ownership marker — the registry validates the PyPI
+     package by finding this name in the published README. -->
+mcp-name: io.github.dankaro-projects/shelfmark

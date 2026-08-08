@@ -1,0 +1,80 @@
+# Publish this release to the official MCP registry
+# (registry.modelcontextprotocol.io) so MCP clients can discover it.
+#
+# Runs after the PyPI release succeeds (the registry validates the PyPI
+# package, so publishing before the package exists would fail), or by hand
+# via workflow_dispatch with the version to (re)publish. Auth is GitHub
+# OIDC — the io.github.dankaro-projects namespace maps to this repo owner,
+# so no token is stored, mirroring the PyPI Trusted Publishing setup.
+#
+# server.json in the repo root is the template; the version fields are
+# stamped here from the released tag so they cannot drift from pyproject.
+
+name: mcp-registry
+
+on:
+  workflow_run:
+    workflows: ["release"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 0.4.0). Must exist on PyPI."
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    # For workflow_run, only after a successful release.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            # the release workflow runs on tag vX.Y.Z
+            ref="${{ github.event.workflow_run.head_branch }}"
+            echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for PyPI to serve the version
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          for i in $(seq 1 30); do
+            if curl -fsS "https://pypi.org/pypi/shelfmark/$v/json" >/dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "PyPI never served shelfmark $v" >&2
+          exit 1
+
+      - name: Stamp server.json
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          jq --arg v "$v" '.version = $v | .packages[].version = $v' \
+            server.json > server.stamped.json
+          mv server.stamped.json server.json
+          cat server.json
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m).tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Publish to the MCP registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -185,17 +186,38 @@ def _count_documents(root, doc_exts, skip_dirs, depth, budget) -> int:
     return n
 
 
-def _probe_written_root(cfg_path) -> None:
-    """Look at the root the config just named, and say so if it is a guess
-    that missed.
+def _set_primary_root(cfg_path, chosen) -> str:
+    """Rewrite the just-written template's primary root to `chosen`.
+
+    Only ever called on a file this same command wrote seconds ago, so the
+    template literal is guaranteed present. Written ~-relative when the
+    folder is under home (readable, and survives a home rename); escaped
+    via json.dumps, which is valid TOML basic-string escaping."""
+    home = Path.home()
+    try:
+        display = "~/" + chosen.relative_to(home).as_posix()
+    except ValueError:
+        display = str(chosen)
+    text = cfg_path.read_text()
+    cfg_path.write_text(
+        text.replace('path = "~/Documents"', f"path = {json.dumps(display)}",
+                     1))
+    return display
+
+
+def _probe_written_root(cfg_path, ask=None) -> None:
+    """Look at the root the config just named; when the guess missed, offer
+    the folders that look like the real corpus and let ONE answer fix it.
 
     init writes `path = "~/Documents"` unconditionally, and on plenty of
     machines that folder is empty or absent — after which the first
-    refresh succeeds over nothing and every tool answers from a confident
-    emptiness. The tool cannot pick the root (that is the operator's
-    call), but it can refuse to stay quiet about a default it could have
-    checked: a guard that declines to act must say so on stderr. No
-    prompt, no flag — the config is written the same either way."""
+    refresh succeeds over nothing. The sweep is evidence the engine
+    already has, so it proposes (counts shown, best candidate as the
+    default); the OPERATOR decides, and the decision lands in config.toml
+    where editing a file reverses it. Non-interactive runs (no TTY) keep
+    the warning-only behaviour — a hook must never hang on a prompt.
+    `ask(prompt, default) -> str` is injected so the flow is testable
+    without a terminal, mirroring review.run()."""
     try:
         c = config_mod.load(cfg_path)
     except ConfigError:
@@ -232,11 +254,44 @@ def _probe_written_root(cfg_path) -> None:
                     continue
     except OSError:
         pass
-    for k, name in sorted(candidates, reverse=True)[:6]:
-        print(f"  candidate: {home / name}  (~{k} document files)",
+    candidates = sorted(candidates, reverse=True)[:6]
+
+    interactive = ask is not None or sys.stdin.isatty()
+    if not candidates or not interactive:
+        for k, name in candidates:
+            print(f"  candidate: {home / name}  (~{k} document files)",
+                  file=sys.stderr)
+        print(f"  Point [[roots]] in {cfg_path} at the folder(s) that hold "
+              f"your documents.", file=sys.stderr)
+        return
+
+    print("\nThese folders do hold documents:", file=sys.stderr)
+    for i, (k, name) in enumerate(candidates, 1):
+        unit = "document file" if k == 1 else "document files"
+        print(f"  {i}. {home / name}  (~{k} {unit})", file=sys.stderr)
+    ask = ask or (lambda prompt, default: input(prompt) or default)
+    got = ask(f"Index which folder? [1] — a number, a path, or 'k' to keep "
+              f"{root}: ", "1").strip()
+
+    chosen = None
+    if got.lower() in ("k", "keep"):
+        pass
+    elif got.isdigit() and 1 <= int(got) <= len(candidates):
+        chosen = home / candidates[int(got) - 1][1]
+    else:
+        p = Path(got).expanduser()
+        if p.is_dir():
+            chosen = p
+        else:
+            print(f"  {got!r} is not a folder here — kept {root}.",
+                  file=sys.stderr)
+    if chosen is None:
+        print(f"  Kept {root}; edit {cfg_path} to change it.",
               file=sys.stderr)
-    print(f"  Point [[roots]] in {cfg_path} at the folder(s) that hold "
-          f"your documents.", file=sys.stderr)
+        return
+    display = _set_primary_root(cfg_path, chosen)
+    print(f"  Root set to {display}. Edit {cfg_path} any time to change it.",
+          file=sys.stderr)
 
 
 def cmd_init(args) -> int:
