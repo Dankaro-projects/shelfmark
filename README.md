@@ -560,4 +560,4 @@ MIT — see [LICENSE](LICENSE). Free to use, modify and redistribute.
 
 <!-- MCP registry ownership marker — the registry validates the PyPI
      package by finding this name in the published README. -->
-mcp-name: io.github.dankaro-projects/shelfmark
+mcp-name: io.github.Dankaro-projects/shelfmark
