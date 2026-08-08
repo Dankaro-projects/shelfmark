@@ -21,7 +21,7 @@ import sqlite3
 import sys
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from .config import Config, has_prefix
 from .probe import parse_app, parse_core
@@ -147,6 +147,20 @@ def infer_rights(rel: str, author: str | None, last_author: str | None,
 
 
 # ----------------------------------------------------------------- file inspection
+
+def rel_key(p: PurePath, base: PurePath, label: str = "") -> str:
+    """The catalogue key for `p` under `base` — ALWAYS forward-slashed.
+
+    Catalogue keys are the grammar everything downstream parses: the
+    /-anchored regexes in rules.py, prefix rules, FTS paths and extra-root
+    label prefixes all assume '/'. PurePath.__str__ uses the platform
+    separator, so on Windows the same file would key as 'a\\b.docx' and
+    silently match no rule at all — as_posix() makes the key identical on
+    every platform. EVERY writer of a catalogue path key must come through
+    here; a second grammar in the same DB is unfindable by the first."""
+    rel = p.relative_to(base).as_posix()
+    return f"{label}/{rel}" if label else rel
+
 
 def is_evicted(st: os.stat_result) -> bool:
     """True when the file is a dataless cloud placeholder.
@@ -283,13 +297,13 @@ def walk(cfg: Config, stats: dict | None = None):
 
     primary = cfg.primary_root.path
     if primary.is_dir():
-        yield from files_under(primary, lambda p: str(p.relative_to(primary)))
+        yield from files_under(primary, lambda p: rel_key(p, primary))
 
     for label, base in cfg.extra_roots.items():
         if not base.is_dir():
             continue
         yield from files_under(base, lambda p, b=base, l=label:
-                               f"{l}/{p.relative_to(b)}")
+                               rel_key(p, b, l))
 
     if stats is not None:
         stats["symlinks"] = seen_links
@@ -303,7 +317,7 @@ def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
         "SELECT path, bytes, mtime, evicted, status FROM files")}
     counts = {"new": 0, "updated": 0, "skipped": 0, "evicted": 0,
               "rematerialised": 0, "corrupt": 0, "restricted": 0, "total": 0,
-              "symlinks": 0}
+              "symlinks": 0, "corrupt_paths": []}
     # Microseconds, not seconds: the prune compares seen_at < run_ts, and two
     # refreshes inside the same second (hooks firing back-to-back) would make
     # a deletion invisible to the second one at coarser resolution.
@@ -392,6 +406,12 @@ def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
             if meta.get("_status") == "corrupt":
                 status = "corrupt"
                 counts["corrupt"] += 1
+                # The count alone is not actionable: "corrupt 2" leaves the
+                # operator to go find them. The _note travels along because
+                # "zero bytes" (a sync stub, benign) and "not zip, not OLE,
+                # not text" (real damage) call for different responses.
+                counts["corrupt_paths"].append(
+                    f"{rel} ({meta.get('_note') or '?'})")
             note = meta.get("_note")
             if meta.get("_real_type"):
                 doc_type, doc_type_src = meta["_real_type"], "sniffed"
@@ -561,6 +581,15 @@ def build(cfg: Config, rebuild: bool = False, do_hash: bool = True) -> dict:
               f"rematerialised {c['rematerialised']}", file=sys.stderr)
         print(f"evicted {c['evicted']}  corrupt {c['corrupt']}  "
               f"restricted {c['restricted']}", file=sys.stderr)
+        # Only THIS run's corrupt files, never the cumulative DB state — the
+        # summary describes what just happened, and a list that outgrew the
+        # count it sits under would say the opposite of what it means.
+        for cp in c["corrupt_paths"][:10]:
+            print(f"  corrupt: {cp}", file=sys.stderr)
+        if len(c["corrupt_paths"]) > 10:
+            print(f"  ... and {len(c['corrupt_paths']) - 10} more "
+                  f"(status='corrupt' in the catalogue has all of them)",
+                  file=sys.stderr)
         if c.get("symlinks"):
             print(f"skipped {c['symlinks']} symlink(s) — the roots are the "
                   f"trust boundary; add a tree as an extra root to index it",

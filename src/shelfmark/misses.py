@@ -151,7 +151,7 @@ def report(cfg: Config, limit: int = 15) -> str:
         for t in set(terms(r["query"])):
             freq[t] = freq.get(t, 0) + 1
 
-    con = sqlite3.connect(f"file:{cfg.db}?mode=ro", uri=True)
+    con = sqlite3.connect(cfg.ro_uri, uri=True)
     try:
         unreachable = {t: n for t, n in freq.items() if not _in_corpus(con, t)}
     finally:

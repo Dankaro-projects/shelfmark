@@ -24,7 +24,7 @@ import traceback
 from datetime import timezone
 from pathlib import Path
 
-from .catalog import is_evicted
+from .catalog import is_evicted, rel_key
 from .config import Config
 
 DEFAULT_RIGHTS = "REFERENCE"
@@ -242,7 +242,7 @@ def _ingest_msg(con, cfg, paths, era, want_body, stats):
                 atts = [clean(a.getFilename()) for a in (m.attachments or [])]
                 atts = [a for a in atts if a]
                 rec = {
-                    "source_path": str(p.relative_to(primary)),
+                    "source_path": rel_key(p, primary),
                     "source_kind": "msg",
                     "pst_folder": None,
                     "era": era,
@@ -355,7 +355,7 @@ def _ingest_pst(con, cfg, paths, era, want_body, stats):
         try:
             pff.open(str(p))
             root = pff.get_root_folder()
-            _walk_pst_folder(root, con, str(p.relative_to(primary)), era,
+            _walk_pst_folder(root, con, rel_key(p, primary), era,
                              want_body, stats)
         except Exception:  # noqa: BLE001
             stats["errors"].append(f"{p.name}: {traceback.format_exc(limit=2)}")
@@ -502,9 +502,9 @@ def ingest(cfg: Config, prefix: str, era: str = "archive",
     # classification.
     def sealed(p: Path) -> bool:
         try:
-            rel = str(p.relative_to(cfg.primary_root.path))
+            rel = rel_key(p, cfg.primary_root.path)
         except ValueError:
-            rel = str(p)
+            rel = p.as_posix()
         return bool(cfg.secret_re.search(rel)
                     or (cfg.private_re and cfg.private_re.search(rel)))
 

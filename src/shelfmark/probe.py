@@ -134,7 +134,7 @@ def probe(path):
     rec = {'path': path}
     st = os.stat(path)
     rec['bytes'] = st.st_size
-    if st.st_blocks == 0 and st.st_size > 0:
+    if getattr(st, "st_blocks", None) == 0 and st.st_size > 0:
         rec['error'] = 'evicted-icloud'
         return rec
     try:

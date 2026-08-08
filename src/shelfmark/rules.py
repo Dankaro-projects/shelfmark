@@ -24,9 +24,30 @@ import re
 
 # ------------------------------------------------------------------ scanning
 
+# Exact-matched per directory NAME, anywhere in the tree. Every entry earns
+# its place by being (a) machine-written, (b) never where a person files a
+# document, and (c) common enough that walking it quietly poisons a first
+# index — an install report on a dev machine measured 34,788 files walked
+# for 711 wanted, the gap almost entirely build output the defaults missed:
+#   build, dist                              JS / Python / Gradle output
+#   target                                   Rust and Maven output
+#   .tox .mypy_cache .pytest_cache .ruff_cache   Python tool caches
+#   .gradle, .idea                           Gradle state, JetBrains metadata
+#   .terraform                               provider binaries
+#   .parcel-cache, .turbo                    JS bundler caches
+#   DerivedData, Pods                        Xcode output, CocoaPods deps
+# Deliberately NOT skipped: vendor/, bin/, out/ — all three are real
+# document-folder names in real corpora (a design vendor's folder, a "bin"
+# of scans, an "out" tray), and cutting them silently is worse than walking
+# a build tree loudly. An operator whose projects use them adds them to
+# [scan].skip_dirs in config. Matching stays case-sensitive on purpose:
+# "Build" (a person's folder) is not "build" (a tool's).
 DEFAULT_SKIP_DIRS = frozenset({
     "node_modules", "venv", ".venv", "__pycache__", ".git", ".next",
     ".playwright-mcp", "site-packages", ".Trash", ".cache",
+    "build", "dist", "target", ".tox", ".mypy_cache", ".pytest_cache",
+    ".ruff_cache", ".gradle", ".idea", ".terraform", ".parcel-cache",
+    ".turbo", "DerivedData", "Pods",
 })
 DEFAULT_SKIP_NAMES = frozenset({".DS_Store", ".localized", "Icon\r"})
 

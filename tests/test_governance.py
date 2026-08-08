@@ -57,14 +57,66 @@ def test_restricted_is_absent_from_every_mcp_tool(built, monkeypatch):
     assert hits(server.search_docs("env", limit=100)) == []
     assert ".env" not in server.browse_folder("Admin", limit=100)
 
-    # get_file must not become the back door either. Asking for a sealed path
-    # by name gets a refusal, not a record: the answer may say the policy
-    # applies, but must carry none of the metadata the record would.
+    # get_file must not become the back door either. A sealed path answers
+    # BYTE-IDENTICALLY to an absent one: the earlier "withheld by policy"
+    # refusal confirmed that a guessed path exists, one probe at a time,
+    # after corpus_stats went to real trouble to hide the subtree at all.
+    absent = server.get_file("Admin/zz_never_existed")
+    assert "Not in catalogue" in absent
     for path in ("Admin/id_rsa", "Admin/.env", "Admin/.env.production"):
         out = server.get_file(path)
-        assert "withheld" in out
-        for field in ("author:", "bytes:", "absolute:", "authored:", "status:"):
-            assert field not in out, (path, field)
+        assert out == absent.replace("Admin/zz_never_existed", path), path
+
+
+def test_get_file_wildcards_are_literal(built, monkeypatch):
+    """LIKE metacharacters in the caller's input must not match anything:
+    an unescaped '%' matches every row and hands back the first record."""
+    from shelfmark import server
+    monkeypatch.setattr(server, "_CFG", built)
+    for probe in ("%", "_", "%.md"):
+        out = server.get_file(probe)
+        assert "Not in catalogue" in out, probe
+        assert "rights" not in out, probe
+
+
+def test_get_file_disk_probe_stays_inside_the_roots(built, monkeypatch,
+                                                    tmp_path):
+    """`..` must not turn the on-disk hint into an existence oracle for
+    arbitrary machine paths — the roots are the trust boundary."""
+    from shelfmark import server
+    monkeypatch.setattr(server, "_CFG", built)
+    outside = tmp_path / "outside_the_roots.txt"
+    outside.write_text("exists, but none of this tool's business\n")
+    out = server.get_file(f"../{outside.name}")
+    assert "IS on disk" not in out
+    assert "Not in catalogue" in out
+
+
+def test_get_file_hint_is_silent_for_uncatalogued_sealed_files(built,
+                                                               monkeypatch):
+    """A file the rules would seal, written after the last refresh, must
+    not be confirmed by the on-disk hint before the walk ever sees it."""
+    from shelfmark import server
+    monkeypatch.setattr(server, "_CFG", built)
+    new = built.primary_root.path / "Clients" / "Alpha" / "id_rsa.bak"
+    new.write_text("-----BEGIN PRIVATE KEY-----\n")
+    out = server.get_file("Clients/Alpha/id_rsa.bak")
+    assert "IS on disk" not in out
+    assert "Not in catalogue" in out
+
+
+def test_sealed_rows_stay_out_of_corpus_stats_aggregates(built, monkeypatch):
+    """The corpus-wide sealed COUNT is the one deliberate disclosure; the
+    headline totals and type breakdowns must not fold sealed rows back in
+    (sum(bytes) over sealed material is still a fact about it)."""
+    from shelfmark import server
+    monkeypatch.setattr(server, "_CFG", built)
+    n_open = one(built,
+                 "SELECT count(*) FROM files WHERE rights != 'RESTRICTED'")
+    n_all = one(built, "SELECT count(*) FROM files")
+    assert n_open < n_all          # the fixture must actually seal something
+    head = server.corpus_stats().splitlines()[1]
+    assert f"{n_open:,} files" in head
 
 
 def test_no_argument_can_unhide_restricted(built, monkeypatch):

@@ -198,7 +198,7 @@ def todo(cfg: Config, out_path: Path | None = None) -> str:
 
 def write(cfg: Config, out_path: Path | None = None) -> str:
     dest = out_path or cfg.db.parent / "FOLDER_CARDS.md"
-    con = sqlite3.connect(f"file:{cfg.db}?mode=ro", uri=True)
+    con = sqlite3.connect(cfg.ro_uri, uri=True)
     con.row_factory = sqlite3.Row
     try:
         agg = collect(con)

@@ -61,16 +61,51 @@ def keeper(cfg, monkeypatch):
 
 # ------------------------------------------------------------------- keeper
 
-def test_the_first_pass_refreshes_unconditionally(keeper):
-    """A timer cannot see changes made while nothing was running, so startup
-    must not ask whether a refresh is 'needed'."""
+def test_the_first_pass_goes_through_the_gate_too(keeper):
+    """Startup is not special. run_if_needed gates on the status file's
+    age, which counts wall-clock — including the time nothing was
+    running — so a recent clean status at startup means at most the same
+    staleness window the steady state already accepts, and an
+    unconditional walk on every MCP-client launch bought nothing tighter
+    while charging every startup a full-corpus walk. Reintroducing the
+    unconditional first run must fail HERE, not only in the end-to-end
+    pair below — this is the decision, that is the mechanism."""
     log = keeper(max_passes=3)
-    assert log[0] == "run"
+    assert log[0] == "if_needed"
 
 
-def test_later_passes_only_refresh_when_needed(keeper):
+def test_every_pass_only_refreshes_when_needed(keeper):
     log = keeper(max_passes=3)
-    assert log == ["run", "if_needed", "if_needed"]
+    assert log == ["if_needed", "if_needed", "if_needed"]
+
+
+def test_a_fresh_index_is_not_rebuilt_at_startup(built, monkeypatch):
+    """End-to-end half 1: status younger than max_age_seconds, no dirty
+    marker — the first tick must not walk the corpus."""
+    from shelfmark import refresh
+    walked = []
+    monkeypatch.setattr(refresh, "run",
+                        lambda c, force=False: walked.append(1) or 0)
+    refresh.run_if_needed(built)
+    assert walked == []
+
+
+@pytest.mark.parametrize("make_stale", [
+    lambda cfg: cfg.status_path.unlink(),                 # never refreshed
+    lambda cfg: cfg.dirty_marker.touch(),                 # a write landed
+])
+def test_a_stale_or_dirty_index_refreshes_on_the_first_tick(built,
+                                                            monkeypatch,
+                                                            make_stale):
+    """End-to-end half 2: what the old unconditional run actually bought is
+    still bought — through the gate."""
+    from shelfmark import refresh
+    walked = []
+    monkeypatch.setattr(refresh, "run",
+                        lambda c, force=False: walked.append(1) or 0)
+    make_stale(built)
+    refresh.run_if_needed(built)
+    assert walked == [1]
 
 
 def test_a_guard_refusing_does_not_stop_the_keeper(keeper):

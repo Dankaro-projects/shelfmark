@@ -212,10 +212,12 @@ def run(cfg: Config, force: bool = False) -> int:
                 cfg, log,
                 f"walk saw only {seen} of {before} catalogued files",
                 f"walk saw {seen}/{before} catalogued files, below the "
-                f"{cfg.coverage_floor_pct}% floor — either the root was "
-                f"unreadable to this process or that many files really went "
-                f"away. Index NOT updated; re-run with --force if the "
-                f"deletion was real.", before, 0)
+                f"{cfg.coverage_floor_pct}% floor — the root was unreadable "
+                f"to this process, that many files really went away, or an "
+                f"upgrade widened the default skip list (newly skipped rows "
+                f"stay catalogued but are no longer walked). Index NOT "
+                f"updated; re-run with --force if the deletion or the new "
+                f"skip list is right.", before, 0)
         if before and seen < floor and force:
             log.say(f"--force: coverage {seen}/{before} accepted")
             _tell(f"--force: accepting coverage {seen}/{before} "
@@ -267,8 +269,10 @@ def run(cfg: Config, force: bool = False) -> int:
                           f"longer on disk, over the "
                           f"{cfg.prune_ceiling_pct}% ceiling.")
                     _tell("  Nothing was deleted; the index still lists them. "
-                          "Check what went missing, then re-run with --force "
-                          "to accept it.")
+                          "A real deletion, an unreadable subtree, or an "
+                          "upgrade widening the default skip list all look "
+                          "like this. Check what went missing, then re-run "
+                          "with --force to accept it.")
                     _tell(f"  log: {cfg.log_path}")
                 else:
                     # Consistent copy of a WAL database — plain cp would tear

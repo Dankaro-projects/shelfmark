@@ -2,6 +2,55 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.3.0 — 2026-08-09
+
+### Changed
+- **The default skip list now covers common build output** (`build`, `dist`,
+  `target`, `.tox`, `.gradle`, `Pods`, `DerivedData`, and other tool
+  caches). An install report measured 34,788 files walked for 711 wanted on
+  a dev machine; the gap was almost entirely these directories. **After
+  upgrading, the first refresh may refuse its prune or fail the coverage
+  floor** — rows for newly skipped files are still catalogued but no longer
+  walked, which looks identical to a mass deletion. That refusal is the
+  guard working; re-run with `--force` to accept the new skip list. Matching
+  stays case-sensitive: `Build/` (a person's folder) is still indexed.
+- `shelfmark init` now probes the root it just wrote. A missing or
+  document-empty `~/Documents` is announced on stderr, with a short census
+  of home folders that do hold documents — the config is written either way.
+- The MCP server no longer walks the whole corpus on every client start.
+  The first background tick goes through the same `max_age_seconds` gate as
+  every later one; startup staleness is bounded by the gate exactly as
+  steady-state staleness already was.
+- **`shelfmark config` now explains the rights precedence.** The seven
+  `[rights]` lists are evaluated in an engine-owned order that used to be
+  discoverable only by reading `derive()`; `config` now prints that order
+  with the number of files each rule currently claims, attributed by the
+  same function that classifies them, and the config template documents
+  each list's full outcome (including the authorship conditionals). The
+  template now lists the keys in evaluation order.
+- Catalogue keys are derived through one forward-slash-normalising helper,
+  ahead of any Windows support (`str(Path)` would write backslashed keys
+  there, which no rule or prefix would ever match). A catalogue built by a
+  hypothetical pre-fix Windows run would need `shelfmark build --rebuild`.
+
+### Fixed
+- **An empty catalogue no longer reports `✓ index fresh`.** Zero indexed
+  files with a configured root that is missing, unmounted, or entirely
+  skip-ruled is now a loud state in `corpus_stats()` *and* a banner on
+  every other tool — previously the exact confident-wrong-answer the
+  freshness machinery exists to prevent shipped as the out-of-the-box
+  default. Found by an external install report (G-01).
+- **`get_file` was an existence oracle for sealed paths** (G-05). A
+  RESTRICTED path now answers byte-identically to an absent one; LIKE
+  metacharacters in the caller's path are escaped; the "it IS on disk"
+  hint no longer fires for paths outside the resolved roots (`..` probing)
+  or for uncatalogued files the rules would seal; `corpus_stats` headline
+  and type breakdowns no longer fold sealed rows into their totals.
+- The refresh summary now names corrupt files (capped at ten, each with its
+  diagnosis) instead of printing a bare count.
+- The unreadable-root guidance no longer recommends macOS Full Disk Access
+  on other platforms.
+
 ## 0.2.1 — 2026-08-07
 
 ### Added

@@ -165,6 +165,17 @@ class Config:
     def log_path(self) -> Path:
         return self.db.parent / "logs" / "refresh.log"
 
+    @property
+    def ro_uri(self) -> str:
+        """SQLite read-only URI for the catalogue.
+
+        Path.as_uri() percent-encodes the characters ('?', '#', '%') that a
+        hand-built f"file:{db}" lets SQLite misparse as URI syntax — a db
+        path containing '?' silently truncates to the wrong file. It also
+        emits forward slashes on every platform, which the f-string form
+        does not on Windows."""
+        return Path(self.db).resolve().as_uri() + "?mode=ro"
+
     def abs_path(self, rel: str) -> Path:
         """Absolute on-disk location of a catalogue path.
 

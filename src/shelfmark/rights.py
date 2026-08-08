@@ -25,21 +25,47 @@ from collections import Counter
 from .config import Config, has_prefix
 
 
-def derive(path: str, author: str | None, last_author: str | None,
-           cfg: Config) -> tuple[str, int, int]:
-    """Return (rights, sensitive, confidential) for one catalogue path."""
+# Evaluation order of the seven prefix lists plus the author signals, as
+# label strings. `shelfmark config` prints them in THIS order with the
+# number of files each currently claims — the order is engine-owned and not
+# configurable: precedence that cannot be misconfigured beats precedence an
+# operator has to get right.
+PRECEDENCE = (
+    "[privacy] secret_patterns / private_paths",
+    "[authors] client (author field or path)",
+    "[rights] own_confidential_prefixes",
+    "[rights] own_prefixes",
+    "[rights] reference_prefixes",
+    "[rights] neutral_prefixes",
+    "[rights] client_roots",
+    "[rights] work_under_personal",
+    "[rights] personal_roots",
+    "(fallback) authored by us",
+    "(fallback) any other author",
+    "(fallback) unclaimed",
+)
+
+
+def _derive_explained(path: str, author: str | None, last_author: str | None,
+                      cfg: Config) -> tuple[str, int, int, str]:
+    """(rights, sensitive, confidential, claimed_by) for one catalogue path.
+
+    The single source of truth for BOTH the backfill and `shelfmark
+    config`'s per-list counts — a separate attribution path would drift
+    from behaviour the first time a branch moved. `claimed_by` is always
+    one of PRECEDENCE."""
     sensitive = int(bool(cfg.secret_re.search(path) or
                          (cfg.private_re and cfg.private_re.search(path))))
     if sensitive:
-        return "RESTRICTED", 1, 1
+        return "RESTRICTED", 1, 1, PRECEDENCE[0]
 
     # --- authorship signals first, they are the strongest evidence ---------
     if cfg.client_author_re:
         for a in (author, last_author):
             if a and cfg.client_author_re.search(a):
-                return "REFERENCE", 0, 1
+                return "REFERENCE", 0, 1, PRECEDENCE[1]
         if cfg.client_author_re.search(path):
-            return "REFERENCE", 0, 1
+            return "REFERENCE", 0, 1, PRECEDENCE[1]
 
     authored_by_us = False
     if cfg.own_author_re:
@@ -51,13 +77,13 @@ def derive(path: str, author: str | None, last_author: str | None,
 
     # --- path-based ownership ----------------------------------------------
     if has_prefix(path, cfg.own_confidential_prefixes):
-        return "OWN", 0, 1
+        return "OWN", 0, 1, PRECEDENCE[2]
     if has_prefix(path, cfg.own_prefixes):
-        return "OWN", 0, 0
+        return "OWN", 0, 0, PRECEDENCE[3]
     if has_prefix(path, cfg.reference_prefixes):
-        return "REFERENCE", 0, 0
+        return "REFERENCE", 0, 0, PRECEDENCE[4]
     if has_prefix(path, cfg.neutral_prefixes):
-        return ("OWN" if authored_by_us else "UNKNOWN"), 0, 0
+        return ("OWN" if authored_by_us else "UNKNOWN"), 0, 0, PRECEDENCE[5]
 
     # Anything under an engagement root is confidential by default: client
     # material does not leave unless positively cleared.
@@ -66,22 +92,31 @@ def derive(path: str, author: str | None, last_author: str | None,
     # files carry an author, so "no author" mostly means "is a PDF or image",
     # which is not evidence of sensitivity. RESTRICTED drops a row from the
     # search index entirely; `confidential` already stops it leaving.
-    if (has_prefix(path, cfg.client_roots)
-            or has_prefix(path, cfg.work_under_personal)):
+    if has_prefix(path, cfg.client_roots):
         if authored_by_us:
-            return "OWN", 0, 1           # our method, their engagement
-        return "REFERENCE", 0, 1         # theirs or unattributed, in confidence
+            return "OWN", 0, 1, PRECEDENCE[6]   # our method, their engagement
+        return "REFERENCE", 0, 1, PRECEDENCE[6] # theirs/unattributed, in conf.
+    if has_prefix(path, cfg.work_under_personal):
+        if authored_by_us:
+            return "OWN", 0, 1, PRECEDENCE[7]
+        return "REFERENCE", 0, 1, PRECEDENCE[7]
 
     if has_prefix(path, cfg.personal_roots):
         # Genuinely personal admin. Not secret, but not work product either —
         # keep it out of the work-facing index.
-        return ("OWN" if authored_by_us else "RESTRICTED"), 0, 1
+        return ("OWN" if authored_by_us else "RESTRICTED"), 0, 1, PRECEDENCE[8]
 
     if authored_by_us:
-        return "OWN", 0, 0
+        return "OWN", 0, 0, PRECEDENCE[9]
     if author:
-        return "REFERENCE", 0, 0
-    return "UNKNOWN", 0, 0
+        return "REFERENCE", 0, 0, PRECEDENCE[10]
+    return "UNKNOWN", 0, 0, PRECEDENCE[11]
+
+
+def derive(path: str, author: str | None, last_author: str | None,
+           cfg: Config) -> tuple[str, int, int]:
+    """Return (rights, sensitive, confidential) for one catalogue path."""
+    return _derive_explained(path, author, last_author, cfg)[:3]
 
 
 def apply(cfg: Config, dry_run: bool = False) -> dict:

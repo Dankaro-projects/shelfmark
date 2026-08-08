@@ -48,7 +48,7 @@ def top_n(counter, n=TOP_FACETS):
 
 
 def generate(cfg: Config) -> str:
-    con = sqlite3.connect(f"file:{cfg.db}?mode=ro", uri=True)
+    con = sqlite3.connect(cfg.ro_uri, uri=True)
     con.row_factory = sqlite3.Row
     try:
         rows = con.execute(

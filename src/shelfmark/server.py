@@ -52,7 +52,7 @@ def cfg() -> Config:
 
 
 def connect():
-    con = sqlite3.connect(f"file:{cfg().db}?mode=ro", uri=True)
+    con = sqlite3.connect(cfg().ro_uri, uri=True)
     con.row_factory = sqlite3.Row
     return con
 
@@ -186,6 +186,32 @@ def index_warning() -> str | None:
                     f"disk comparison.")
     except (ValueError, KeyError, json.JSONDecodeError) as exc:
         return f"⚠ REFRESH_STATUS.json is unreadable ({exc}) — freshness unknown."
+
+    # A recent 'ok' status over an EMPTY catalogue is the one healthy-looking
+    # state that still produces the confident wrong answer: every tool
+    # replies "no matches" and the caller concludes the material does not
+    # exist. One EXISTS probe (O(1), no walk) overrides the clean bill of
+    # health. An email-only catalogue is legitimately file-empty, so both
+    # tables have to be empty before this fires.
+    try:
+        con = connect()
+        try:
+            empty = not con.execute(
+                "SELECT EXISTS(SELECT 1 FROM files)").fetchone()[0]
+            if empty and has_table(con, "emails"):
+                empty = not con.execute(
+                    "SELECT EXISTS(SELECT 1 FROM emails)").fetchone()[0]
+        finally:
+            con.close()
+        if empty:
+            return ("⚠ the catalogue is EMPTY — the last refresh ran but "
+                    "indexed nothing, so \"no matches\" means \"nothing "
+                    "indexed\", not \"it does not exist\". The configured "
+                    "root is wrong, unmounted, or holds no documents; call "
+                    "corpus_stats() for which, and check [[roots]] in "
+                    "config.toml.")
+    except sqlite3.Error:
+        pass                                      # no db yet — already warned
     return None
 
 
@@ -612,26 +638,47 @@ def get_file(path: str) -> str:
         return "No path given."
     con = connect()
     try:
+        # The caller's input reaches a LIKE pattern, so its metacharacters
+        # are escaped: an unescaped "%" would match every row and turn the
+        # suffix fallback into an enumeration primitive.
+        esc = (path.replace("\\", "\\\\")
+                   .replace("%", "\\%").replace("_", "\\_"))
         r = con.execute(
-            "SELECT * FROM files WHERE path = ? OR path LIKE ?",
-            (path, f"%{path}"),
+            "SELECT * FROM files WHERE path = ? OR path LIKE ? ESCAPE '\\'",
+            (path, f"%{esc}"),
         ).fetchone()
-        if not r:
-            # "Not in catalogue" and "not on disk" are different answers.
-            # One stat, only on a path already known to be absent.
-            try:
-                on_disk = cfg().abs_path(path).exists()
-            except Exception:                     # noqa: BLE001
-                on_disk = False
-            if on_disk:
-                return with_warning(
-                    f"Not in the catalogue yet, but it IS on disk: {path}\n\n"
-                    f"The index has not caught up with this file. It will be "
-                    f"picked up by the next refresh.")
+        if not r or r["rights"] == "RESTRICTED":
+            # A sealed row answers EXACTLY like an absent one — same
+            # string, same with_warning wrapping. The old "withheld by
+            # policy" refusal confirmed a guessed path exists, one probe at
+            # a time, after corpus_stats went to real trouble to hide that
+            # the subtree is even there. Announcing a refusal is for the
+            # operator at the CLI; an MCP caller gets indistinguishability.
+            if not r:
+                # "Not in catalogue" and "not on disk" are different
+                # answers, so an absent path earns one stat — but only when
+                # BOTH guards pass. The rules check keeps the hint from
+                # confirming un-catalogued files in sealed subtrees; the
+                # containment check keeps `..` from probing arbitrary
+                # machine paths through a tool bound to the roots.
+                from .config import _inside
+                from .rights import derive
+                c = cfg()
+                sealed_by_rule = derive(path, None, None, c)[0] == "RESTRICTED"
+                try:
+                    disk_probe = c.abs_path(path)
+                    on_disk = (not sealed_by_rule
+                               and any(_inside(disk_probe, root.path)
+                                       for root in c.roots)
+                               and disk_probe.exists())
+                except Exception:                 # noqa: BLE001
+                    on_disk = False
+                if on_disk:
+                    return with_warning(
+                        f"Not in the catalogue yet, but it IS on disk: {path}\n\n"
+                        f"The index has not caught up with this file. It will be "
+                        f"picked up by the next refresh.")
             return with_warning(f"Not in catalogue: {path}")
-        if r["rights"] == "RESTRICTED":
-            return (f"{r['path']}\n\nRESTRICTED — metadata withheld by policy. "
-                    f"Searchable locally only.")
         titles = con.execute(
             "SELECT title FROM slide_titles WHERE file_id = ? LIMIT 40",
             (r["id"],),
@@ -731,6 +778,21 @@ def disk_drift(con) -> dict:
     except Exception as exc:                      # noqa: BLE001
         return {"state": "unknown", "why": f"walk failed ({exc})"}
 
+    # Zero rows AND zero files seen is not "fresh" — it is a catalogue with
+    # nothing in it, which answers every question with a confident
+    # emptiness. "Matches an empty root" and "is a usable catalogue" are as
+    # different as "a refresh ran" and "the index is current". The
+    # threshold is exactly zero, deliberately: zero is a fact, while any
+    # floor above it is a claim about corpus size that would demand a
+    # config key. A near-empty catalogue is already covered — real files
+    # appearing on disk show up in `new` below.
+    if not known and seen == 0:
+        c = cfg()
+        return {"state": "empty",
+                "missing_roots": [str(r.path) for r in c.roots
+                                  if not r.path.is_dir()],
+                "roots": [str(r.path) for r in c.roots]}
+
     # The OS can deny the document root to this process (macOS TCC does) and
     # os.walk swallows it, yielding an empty tree. That must never read as
     # "everything was deleted".
@@ -782,12 +844,42 @@ def freshness_line(con) -> str:
 
     drift = disk_drift(con)
 
+    if drift["state"] == "empty":
+        # The walk saw nothing and the catalogue holds nothing. Two causes,
+        # and only one is distinguishable from here: a root that is not a
+        # directory is named outright; roots that exist but yielded nothing
+        # are either genuinely empty or entirely skip-ruled, and the check
+        # cannot tell which — so it says both.
+        miss = drift["missing_roots"]
+        if miss:
+            head = (f"⚠ CATALOGUE EMPTY — configured root"
+                    f"{'s do not exist' if len(miss) > 1 else ' does not exist'}"
+                    f": {', '.join(miss)}")
+            tail = ("Point [[roots]] in config.toml at the folders that "
+                    "hold your documents, or mount the missing one.")
+        else:
+            head = (f"⚠ CATALOGUE EMPTY — "
+                    f"{', '.join(drift['roots'])} exists but holds no "
+                    f"indexable files")
+            tail = ("Either it is genuinely empty, or everything under it "
+                    "is excluded by the skip rules. Point [[roots]] in "
+                    "config.toml at the folders that hold your documents.")
+        return f"{head}. {tail}" + (f" [{suffix}]" if suffix else "")
+
     if drift["state"] == "unreadable":
+        # The remedy is platform-specific and this line is read by a person
+        # on ONE platform — macOS users get the actual switch to flip,
+        # everyone else gets the multi-cause form (naming TCC on Linux
+        # would be advice written for somebody else).
+        remedy = ("grant this process access (macOS: Full Disk Access)"
+                  if sys.platform == "darwin" else
+                  "check the root's permissions, and that its filesystem "
+                  "is mounted")
         return (f"⚠ CANNOT VERIFY — the walk saw only {drift['seen']:,} of "
                 f"{drift['rows']:,} catalogued files, so the OS is denying "
                 f"this process the document root. Answers come from the last "
-                f"good snapshot; grant this process access (macOS: Full Disk "
-                f"Access) or run the refresh from a terminal.")
+                f"good snapshot; {remedy}, or run the refresh from a "
+                f"terminal.")
 
     if drift["state"] == "unknown":
         head = "⚠ freshness UNKNOWN" if not failed else "⚠ LAST REFRESH FAILED"
@@ -832,7 +924,12 @@ def corpus_stats() -> str:
         def q(sql, params=()):
             return con.execute(sql, params).fetchall()
 
-        total = q("SELECT count(*) c, sum(bytes) b FROM files")[0]
+        # Sealed rows stay out of every aggregate below — headline bytes
+        # included, since "how big" is still a fact about material this
+        # tool has promised not to describe. The corpus-wide sealed COUNT
+        # is the single deliberate exception (see the SEALED line).
+        total = q("SELECT count(*) c, sum(bytes) b FROM files"
+                  " WHERE rights != 'RESTRICTED'")[0]
         # RESTRICTED rows are excluded, not counted. A per-root breakdown
         # says where sealed material lives and how much of it there is, and
         # a root that holds nothing else is named by its mere presence in
@@ -849,9 +946,11 @@ def corpus_stats() -> str:
                       WHERE rights != 'RESTRICTED'
                       GROUP BY rights, confidential ORDER BY n DESC""")
         dts = q("""SELECT COALESCE(NULLIF(doc_type,''),'—') d, count(*) n
-                   FROM files GROUP BY 1 ORDER BY n DESC LIMIT 12""")
+                   FROM files WHERE rights != 'RESTRICTED'
+                   GROUP BY 1 ORDER BY n DESC LIMIT 12""")
         cts = q("""SELECT COALESCE(NULLIF(context_type,''),'—') c, count(*) n
-                   FROM files GROUP BY 1 ORDER BY n DESC LIMIT 12""")
+                   FROM files WHERE rights != 'RESTRICTED'
+                   GROUP BY 1 ORDER BY n DESC LIMIT 12""")
         em = None
         if has_table(con, "emails"):
             em = q("SELECT count(*) c, min(sent_year) a, max(sent_year) b"
@@ -948,15 +1047,25 @@ def auto_refresh(stop, tick: float = AUTO_REFRESH_TICK_SECONDS) -> None:
     lock, so a second client's keeper declines rather than colliding.
     """
     from . import refresh
-    first, errors = True, 0
+    errors = 0
     while not stop.is_set():
         try:
-            # Unconditional on startup: a timer cannot see what changed
-            # while nothing was running.
-            if first:
-                refresh.run(cfg())
-            else:
-                refresh.run_if_needed(cfg())
+            # Startup is not special. run_if_needed gates on the STATUS
+            # FILE's age, which counts wall-clock — including all the time
+            # nothing was running — so changes made while the server was
+            # down are picked up on the first tick the moment the index is
+            # older than max_age_seconds. A recent clean status at startup
+            # therefore means at most the staleness window the steady
+            # state already accepts every minute of the session; walking
+            # the whole corpus on every client launch bought nothing
+            # tighter, and its cost is linear in corpus size (worst on
+            # cloud mounts). The one blind spot is a file written with a
+            # future mtime inside that window — the drift walk in
+            # corpus_stats announces it. An operator wanting tighter
+            # startup freshness lowers refresh.max_age_seconds, which
+            # governs startup and steady state the same way — no separate
+            # flag.
+            refresh.run_if_needed(cfg())
             errors = 0
         except Exception as exc:                  # noqa: BLE001
             errors += 1
@@ -967,7 +1076,6 @@ def auto_refresh(stop, tick: float = AUTO_REFRESH_TICK_SECONDS) -> None:
                       "index will go stale and every tool will say so.",
                       file=sys.stderr)
                 return
-        first = False
         stop.wait(tick)
 
 

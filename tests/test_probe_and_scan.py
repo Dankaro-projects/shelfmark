@@ -24,6 +24,24 @@ def test_extra_roots_are_labelled_not_merged(built):
 
 # -------------------------------------------------------------- slide titles
 
+def test_build_output_dirs_are_skipped_but_case_matters(cfg):
+    """'build' (a tool's directory) is skipped; 'Build' (a person's) is
+    not — the skip list is exact-matched on purpose, because widening it
+    case-insensitively would silently cut real document folders."""
+    from shelfmark import catalog
+    root = cfg.primary_root.path
+    (root / "build").mkdir()
+    (root / "build" / "artefact.docx").write_text("machine output")
+    (root / "Build").mkdir()
+    (root / "Build" / "site_photos.docx").write_text("a person's folder")
+    catalog.build(cfg)
+    from conftest import one
+    assert one(cfg, "SELECT COUNT(*) FROM files"
+                    " WHERE filename='artefact.docx'") == 0
+    assert one(cfg, "SELECT COUNT(*) FROM files"
+                    " WHERE filename='site_photos.docx'") == 1
+
+
 def test_library_placeholders_are_dropped(built):
     fid = one(built, "SELECT id FROM files WHERE filename='library_placeholders.pptx'")
     assert rows(built, "SELECT title FROM slide_titles WHERE file_id=?", fid) == []
@@ -114,6 +132,37 @@ def test_a_truncated_ooxml_file_is_recorded_not_fatal(cfg, tmp_path):
 
     assert refresh.run(cfg) == 0
     assert one(cfg, "SELECT COUNT(*) FROM files WHERE filename='truncated.pptx'") == 1
+
+
+def test_corrupt_files_are_named_not_just_counted(cfg, capsys):
+    """'corrupt 2' with no paths leaves the operator to go find them, and
+    a zero-byte sync stub calls for a different response than real damage
+    — so each name carries its diagnosis. Per-run only: the list must
+    match the count above it, never the cumulative DB state."""
+    from shelfmark import catalog
+    d = cfg.primary_root.path / "Decks"
+    (d / "hollow_stub.pptx").write_bytes(b"")
+    (d / "mangled.docx").write_bytes(b"\xff\xfe\x00 not any format")
+    catalog.build(cfg)
+    err = capsys.readouterr().err
+    assert "corrupt 2" in err
+    assert "hollow_stub.pptx (zero bytes)" in err
+    assert "mangled.docx (not zip, not OLE, not text)" in err
+
+
+def test_corrupt_paths_report_this_run_not_the_catalogue(cfg, capsys):
+    """A file that stays corrupt in the DB but was skipped this run (same
+    size, same mtime) must not be re-listed — the summary describes what
+    just happened."""
+    from shelfmark import catalog
+    stub = cfg.primary_root.path / "Decks" / "hollow_stub.pptx"
+    stub.write_bytes(b"")
+    catalog.build(cfg)
+    capsys.readouterr()
+    catalog.build(cfg)                    # second run: stub is unchanged
+    err = capsys.readouterr().err
+    assert "corrupt 0" in err
+    assert "hollow_stub.pptx" not in err
 
 
 def test_hashing_finds_the_duplicate_pair(built):

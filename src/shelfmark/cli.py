@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from pathlib import Path
 
 from . import __version__
 from . import config as config_mod
@@ -57,17 +59,36 @@ client = []
 tool = []
 
 [rights]
-# Path-prefix rules, checked in this order after the author signals.
-# rights = may I REUSE it (OWN/REFERENCE/RESTRICTED);
-# confidential = may it LEAVE (independent axis — a deck you authored for a
-# client is OWN and confidential at the same time).
-own_prefixes = []                 # yours, shareable
-own_confidential_prefixes = []    # yours, but never leaves (e.g. invoices)
-reference_prefixes = []           # third-party material, fine to reference
-neutral_prefixes = []             # scratch/captures: not work product
-client_roots = []                 # engagement trees: confidential by default
-personal_roots = []               # personal admin: held out of the work index
-work_under_personal = []          # work subtrees misfiled under a personal root
+# Path-prefix rules producing two INDEPENDENT axes:
+#   rights       = may I REUSE it (OWN / REFERENCE / RESTRICTED)
+#   confidential = may it LEAVE (a deck you authored for a client is OWN
+#                  and confidential at the same time)
+# FIRST MATCH WINS, in exactly the order the lists appear below. The order
+# is engine-owned, not configurable; `shelfmark config` prints it together
+# with the number of files each rule currently claims. Two things outrank
+# every list here: [privacy] patterns (file becomes RESTRICTED), then an
+# [authors].client match on the author fields or the path (REFERENCE,
+# confidential). Several outcomes below also depend on whether an
+# [authors].own or .tool regex matched the file's author ("authored by
+# us") — that is why these cannot be a flat prefix -> value table.
+own_confidential_prefixes = []    # -> OWN, must not leave (e.g. invoices).
+                                  #    Checked BEFORE own_prefixes so it may
+                                  #    name a subtree nested inside one.
+own_prefixes = []                 # -> OWN, may leave
+reference_prefixes = []           # -> REFERENCE, may leave
+neutral_prefixes = []             # scratch/captures -> OWN if authored by
+                                  #    us, else UNKNOWN (not work product)
+client_roots = []                 # engagement trees -> always confidential;
+                                  #    OWN if authored by us (your method on
+                                  #    their engagement), else REFERENCE
+work_under_personal = []          # work misfiled under a personal root —
+                                  #    same outcomes as client_roots
+personal_roots = []               # personal admin -> confidential; OWN if
+                                  #    authored by us, else RESTRICTED (held
+                                  #    out of the work-facing index)
+# A file no rule claims falls back to: OWN if authored by us, REFERENCE if
+# it carries any other author, else UNKNOWN — and UNKNOWN is held back from
+# shareable answers until reviewed (never-reviewed is not cleared).
 
 [facets]
 # Top-level folders that count as work (client = 2nd path segment,
@@ -125,6 +146,99 @@ def _load(args):
         raise SystemExit(2)
 
 
+# Extensions that mean "a person filed a document here" when init probes a
+# candidate root. Deliberately narrower than DEFAULT_EXT_FALLBACK: code,
+# config, fonts, archives and video are what makes a SOURCE tree score like
+# a corpus, which is the mistake this probe exists to catch.
+_PROBE_DOC_TYPES = frozenset({
+    "deck", "document", "spreadsheet", "pdf", "note", "email", "image",
+    "vector", "diagram",
+})
+
+
+def _count_documents(root, doc_exts, skip_dirs, depth, budget) -> int:
+    """Stat-only document census of one tree. Depth-capped, skip-pruned,
+    symlink-refusing (the roots are the trust boundary from the very first
+    command), permission-tolerant: an unreadable subtree counts zero
+    rather than failing init."""
+    n = 0
+    try:
+        with os.scandir(root) as entries:
+            for e in entries:
+                if budget[0] <= 0:
+                    return n
+                budget[0] -= 1
+                try:
+                    if e.is_symlink():
+                        continue
+                    if e.is_dir(follow_symlinks=False):
+                        if depth > 0 and e.name not in skip_dirs \
+                                and not e.name.startswith("."):
+                            n += _count_documents(e.path, doc_exts, skip_dirs,
+                                                  depth - 1, budget)
+                    elif os.path.splitext(e.name)[1].lower() in doc_exts:
+                        n += 1
+                except OSError:
+                    continue
+    except OSError:
+        pass
+    return n
+
+
+def _probe_written_root(cfg_path) -> None:
+    """Look at the root the config just named, and say so if it is a guess
+    that missed.
+
+    init writes `path = "~/Documents"` unconditionally, and on plenty of
+    machines that folder is empty or absent — after which the first
+    refresh succeeds over nothing and every tool answers from a confident
+    emptiness. The tool cannot pick the root (that is the operator's
+    call), but it can refuse to stay quiet about a default it could have
+    checked: a guard that declines to act must say so on stderr. No
+    prompt, no flag — the config is written the same either way."""
+    try:
+        c = config_mod.load(cfg_path)
+    except ConfigError:
+        return                    # a hand-edited config is not our guess
+    doc_exts = {e for e, t in c.ext_fallback.items() if t in _PROBE_DOC_TYPES}
+    root = c.primary_root.path
+    budget = [20000]              # entries statted, shared across the sweep
+    n = _count_documents(root, doc_exts, c.skip_dirs, 4, budget) \
+        if root.is_dir() else None
+    if n:
+        return                    # the default landed; nothing to say
+    if n is None:
+        print(f"\nWARNING: {root} does not exist on this machine.",
+              file=sys.stderr)
+    else:
+        print(f"\nWARNING: {root} exists but holds no document files — "
+              f"a refresh now would build an empty catalogue.",
+              file=sys.stderr)
+    home = Path.home()
+    candidates = []
+    try:
+        with os.scandir(home) as entries:
+            for e in entries:
+                try:
+                    if (e.is_dir(follow_symlinks=False)
+                            and not e.name.startswith(".")
+                            and e.name not in c.skip_dirs
+                            and Path(e.path) != root):
+                        k = _count_documents(e.path, doc_exts, c.skip_dirs,
+                                             3, budget)
+                        if k:
+                            candidates.append((k, e.name))
+                except OSError:
+                    continue
+    except OSError:
+        pass
+    for k, name in sorted(candidates, reverse=True)[:6]:
+        print(f"  candidate: {home / name}  (~{k} document files)",
+              file=sys.stderr)
+    print(f"  Point [[roots]] in {cfg_path} at the folder(s) that hold "
+          f"your documents.", file=sys.stderr)
+
+
 def cmd_init(args) -> int:
     path = config_mod.resolve_config_path(args.config)
     if path.exists() and not args.force:
@@ -133,6 +247,7 @@ def cmd_init(args) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(CONFIG_TEMPLATE)
     print(f"Wrote {path}")
+    _probe_written_root(path)
     print()
     print("Next steps:")
     print(f"  1. Edit {path} — set your [[roots]] and, if you want")
@@ -156,6 +271,37 @@ def cmd_config(args) -> int:
           f"{len(cfg.context_rules)} context")
     print(f"privacy: private_paths {'set' if cfg.private_re else 'not set'}, "
           f"own authors {'set' if cfg.own_author_re else 'not set'}")
+
+    # The seven [rights] lists are evaluated in an engine-owned order that
+    # used to be discoverable only by reading rights.derive(). Print the
+    # order, and — when there is a catalogue — how many files each rule
+    # currently claims, attributed by the SAME function that classifies
+    # them, so this table can never drift from behaviour.
+    from collections import Counter
+
+    from . import rights as rights_mod
+    claims: Counter = Counter()
+    have_db = cfg.db.exists()
+    if have_db:
+        import sqlite3
+        try:
+            con = sqlite3.connect(cfg.ro_uri, uri=True)
+            try:
+                for p, a, la in con.execute(
+                        "SELECT path, author, last_author FROM files"):
+                    claims[rights_mod._derive_explained(p, a, la, cfg)[3]] += 1
+            finally:
+                con.close()
+        except sqlite3.Error:
+            have_db = False
+    print()
+    print("rights precedence (first match wins"
+          + ("; files each rule claims now):" if have_db else "):"))
+    for label in rights_mod.PRECEDENCE:
+        if have_db:
+            print(f"  {claims.get(label, 0):>7,}  {label}")
+        else:
+            print(f"           {label}")
     return 0
 
 

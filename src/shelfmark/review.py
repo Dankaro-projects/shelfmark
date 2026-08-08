@@ -146,7 +146,7 @@ def plan(cfg: Config, limit: int = 12, own_author: str | None = None) -> Plan:
     own_re = cfg.own_author_re
     if own_author:
         own_re = re.compile(re.escape(own_author), re.I)
-    con = sqlite3.connect(f"file:{cfg.db}?mode=ro", uri=True)
+    con = sqlite3.connect(cfg.ro_uri, uri=True)
     try:
         total, = _rows(con, "SELECT COUNT(*) FROM files")[0]
         unclassified, = _rows(con, "SELECT COUNT(*) FROM files"
@@ -407,7 +407,7 @@ def run(cfg: Config, apply: bool = False, limit: int = 12,
         from . import config as config_mod, rights
         cfg = config_mod.load(cfg.source) if cfg.source else cfg
         rights.apply(cfg)
-        con = sqlite3.connect(f"file:{cfg.db}?mode=ro", uri=True)
+        con = sqlite3.connect(cfg.ro_uri, uri=True)
         try:
             now, = _rows(con, "SELECT COUNT(*) FROM files"
                               " WHERE rights='UNKNOWN'")[0]
