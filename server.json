@@ -1,5 +1,5 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Dankaro-projects/shelfmark",
   "description": "Local, privacy-first document catalogue for AI agents: metadata-only discovery, no cloud, no RAG.",
   "repository": {
