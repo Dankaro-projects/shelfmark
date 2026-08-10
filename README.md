@@ -360,6 +360,25 @@ them on every `corpus_stats()` call.
 Any guard that declines to touch the index says so on stderr and exits
 non-zero — you never get a clean-looking summary hiding a refusal.
 
+### When something is wrong and nothing says so
+
+```sh
+shelfmark doctor
+```
+
+Checks the setup for the failures that stay quiet: a catalogue inside a
+cloud-synced folder (a sync client uploads it on every write, and one that
+copies the `.db`, `-wal` and `-shm` at different moments restores a torn
+database that opens and answers *wrongly*), a root the process cannot read
+— on macOS usually Full Disk Access, which is what an empty walk is hiding
+— a database folder that is not writable, a corpus that is mostly
+cloud-evicted and what that costs you, and any email format sitting in the
+catalogue with no reader installed.
+
+It names the fix rather than the fault, prints the evidence behind each
+guess so you can overrule it, takes no flags, and exits non-zero on
+anything fatal so it can gate a setup script.
+
 ### When a guard stops you
 
 The two size guards cannot tell "the root was unreadable" from "those files

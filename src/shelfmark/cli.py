@@ -459,6 +459,11 @@ def cmd_stats(args) -> int:
     return 0
 
 
+def cmd_doctor(args) -> int:
+    from . import doctor
+    return doctor.run(_load(args))
+
+
 def cmd_serve(args) -> int:
     from . import server
     if args.config:
@@ -656,6 +661,10 @@ def main(argv=None) -> None:
 
     p = sub.add_parser("config", help="show the resolved configuration")
     p.set_defaults(fn=cmd_config)
+
+    p = sub.add_parser("doctor", help="check the setup for the problems that "
+                                      "fail silently")
+    p.set_defaults(fn=cmd_doctor)
 
     p = sub.add_parser("build", help="walk the tree and update the catalogue")
     p.add_argument("--rebuild", action="store_true",

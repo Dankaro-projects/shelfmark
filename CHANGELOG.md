@@ -5,6 +5,26 @@ Notable changes per release. Dates are UTC.
 ## Unreleased
 
 ### Added
+- **`shelfmark doctor`** — checks the setup for the problems that otherwise
+  fail silently, on all three platforms. The headline is the one nothing
+  enforced: **the catalogue sitting inside a cloud-synced folder.** The
+  config comments call that mandatory, but a comment is not a check, and
+  the operator who most needs the rule is the one who did not read the
+  file. A sync client uploads the database on every write, and one that
+  copies the `.db`, `-wal` and `-shm` at different moments restores a torn
+  database that opens and answers wrongly. Sync folders are discovered at
+  runtime — OneDrive publishes its own location including the tenancy name,
+  macOS keeps third-party clients under `~/Library/CloudStorage`, and the
+  conventional home-relative names cover the rest — because a literal list
+  cannot hold "OneDrive - Contoso". The matched folder is printed as
+  evidence rather than asserted, since detection is a guess and a
+  diagnostic that cries wolf is one people learn to skip. It also reports
+  unreadable roots (naming Full Disk Access on macOS, where the denial is
+  what an empty walk is usually hiding), a non-writable database folder, a
+  mostly-evicted corpus and what that costs, mostly-UNKNOWN rights, and any
+  email format present in the catalogue with no reader installed. No flags:
+  everything it reports it can determine. Exit 1 on anything fatal, so it
+  works in a setup script.
 - **Windows paths over 260 characters are now catalogued, not just
   reported.** Win32 refuses them with ERROR_PATH_NOT_FOUND unless the
   machine-wide `LongPathsEnabled` key is set, which needs an administrator
