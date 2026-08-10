@@ -177,8 +177,10 @@ uv tool install shelfmark          # or: pipx install shelfmark
 uv tool install /path/to/shelfmark
 ```
 
-Python ≥ 3.11. macOS and Linux. Email ingestion is optional and pulls extra
-dependencies: `uv tool install "shelfmark[email]"`.
+Python ≥ 3.11. macOS, Linux and Windows — the full suite runs on all three
+in CI, including the Windows-specific behaviours (OneDrive placeholder
+detection, junction refusal at the root boundary). Email ingestion is
+optional and pulls extra dependencies: `uv tool install "shelfmark[email]"`.
 
 ## Quickstart
 
@@ -415,6 +417,11 @@ layer reports success while the index never updates. Grant Full Disk Access
 to the interpreter that runs the job and a LaunchAgent is fine. The
 coverage assertion catches the ungranted case either way: the refresh
 fails loudly rather than quietly indexing nothing.
+
+On Windows, Task Scheduler running the same command is the equivalent; no
+scheduled-run recipe has been field-tested there yet, so if you set one up,
+the coverage assertion is again what stands between a broken schedule and a
+silently stale index.
 
 ## Content hashing and duplicates
 
