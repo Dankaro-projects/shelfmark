@@ -205,12 +205,14 @@ def test_comments_survive(cfg):
     # The template hardcodes the REAL default db path; a test that leaves it
     # alone writes the synthetic corpus into the operator's own catalogue.
     from conftest import toml_str
+    # utf-8 explicitly: the template contains characters outside cp1252,
+    # which is what write_text defaults to on Windows.
     cfg.source.write_text(
         CONFIG_TEMPLATE
         .replace('path = "~/Documents"',
                  f'path = {toml_str(cfg.primary_root.path)}')
         .replace('db = "~/.local/share/shelfmark/catalog.db"',
-                 f'db = {toml_str(cfg.db)}'))
+                 f'db = {toml_str(cfg.db)}'), encoding="utf-8")
     from shelfmark import config as cm, refresh
     c = cm.load(cfg.source)
     refresh.run(c)

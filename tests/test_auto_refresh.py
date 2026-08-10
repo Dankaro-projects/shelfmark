@@ -213,14 +213,23 @@ def test_a_lock_held_by_another_user_is_not_stolen(cfg, monkeypatch):
     catalogue against different run timestamps is the wrong-prune this
     module exists to prevent."""
     import os
+    import sys
     from shelfmark import refresh
     refresh.run(cfg)
     before = one(cfg, "SELECT COUNT(*) FROM files")
 
-    def not_ours(pid, sig):
-        raise PermissionError("Operation not permitted")
+    # Fake the probe each platform actually uses. On POSIX that is
+    # os.kill(pid, 0) raising PermissionError; on Windows the probe is
+    # OpenProcess (os.kill there would TERMINATE the target, which is why
+    # refresh never calls it), and ACCESS_DENIED surfaces as (True, True).
+    if sys.platform == "win32":
+        monkeypatch.setattr(refresh, "_win_pid_running",
+                            lambda pid: (True, True))
+    else:
+        def not_ours(pid, sig):
+            raise PermissionError("Operation not permitted")
 
-    monkeypatch.setattr(os, "kill", not_ours)
+        monkeypatch.setattr(os, "kill", not_ours)
     cfg.lock_dir.mkdir(parents=True, exist_ok=True)
     (cfg.lock_dir / "pid").write_text("4242")
     (cfg.primary_root.path / "Clients" / "Alpha" / "ignored.md").write_text("x\n")

@@ -33,15 +33,17 @@ def test_posix_paths_are_unchanged():
 
 
 def test_ro_uri_survives_uri_metacharacters_in_the_db_path(tmp_path):
-    # A '?' in the db path makes the hand-built f"file:{db}?mode=ro" form
-    # truncate at the first '?', silently opening a DIFFERENT (empty) db.
-    # Path.as_uri() percent-encodes it. Reverting ro_uri to the f-string
-    # must fail here.
+    # A URI metacharacter in the db path makes the hand-built
+    # f"file:{db}?mode=ro" form truncate, silently opening a DIFFERENT
+    # (empty) db. Path.as_uri() percent-encodes it. Reverting ro_uri to the
+    # f-string must fail here. '#' rather than '?': sqlite discards both a
+    # '?' query and a '#' fragment identically, but '?' cannot exist in an
+    # NTFS filename, and this must fail on every platform CI runs.
     import sqlite3
 
     from shelfmark.config import Config
 
-    odd = tmp_path / "cat?logue.db"
+    odd = tmp_path / "cat#logue.db"
     con = sqlite3.connect(odd)
     con.execute("CREATE TABLE t (x)")
     con.execute("INSERT INTO t VALUES (1)")
