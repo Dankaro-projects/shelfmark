@@ -179,8 +179,19 @@ uv tool install /path/to/shelfmark
 
 Python ≥ 3.11. macOS, Linux and Windows — the full suite runs on all three
 in CI, including the Windows-specific behaviours (OneDrive placeholder
-detection, junction refusal at the root boundary). Email ingestion is
-optional and pulls extra dependencies: `uv tool install "shelfmark[email]"`.
+detection, junction refusal at the root boundary).
+
+Email ingestion is optional, and the extra you want depends on the format
+you have. `.msg` resolves to wheels everywhere; `.pst` needs
+`libpff-python`, which publishes no wheels and compiles from C source, so
+it requires a build toolchain (Visual C++ Build Tools, `build-essential`,
+or the Xcode command line tools):
+
+```sh
+uv tool install "shelfmark[msg]"      # .msg — no compiler needed
+uv tool install "shelfmark[pst]"      # .pst — compiles from C source
+uv tool install "shelfmark[email]"    # both
+```
 
 ## Quickstart
 

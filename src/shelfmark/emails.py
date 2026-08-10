@@ -1,7 +1,9 @@
 """Ingest .pst / .msg email archives into the catalogue. Optional feature.
 
-Requires the `email` extra:  pip install 'shelfmark[email]'
-(libpff-python for .pst, extract-msg for .msg)
+Requires a reader for the format you have:
+  pip install 'shelfmark[msg]'    # .msg — extract-msg, pure wheels
+  pip install 'shelfmark[pst]'    # .pst — libpff-python, compiles from C
+  pip install 'shelfmark[email]'  # both
 
 Headers always. Bodies only with bodies=True, and they land in a separate
 table so they can be dropped without rebuilding anything else. Ingested
@@ -537,10 +539,21 @@ def ingest(cfg: Config, prefix: str, era: str = "archive",
             print(f"shelfmark: cannot read {fmt} files — {module} is not "
                   f"installed. Install with:  pip install '{extra}'",
                   file=sys.stderr)
+            if module == "pypff":
+                # libpff-python publishes no wheels at all, so this install
+                # compiles. Saying so beats letting pip fail with a linker
+                # error the reader has no reason to connect to email.
+                print("  (.pst support builds from C source — it needs a "
+                      "compiler: Visual C++ Build Tools on Windows, "
+                      "build-essential on Linux, Xcode CLT on macOS.)",
+                      file=sys.stderr)
             return False
 
-    can_pst = reader("pypff", ".pst", "shelfmark[email]") if psts else False
-    can_msg = reader("extract_msg", ".msg", "shelfmark[email]") if msgs else False
+    # Name the extra that installs THIS reader, not the one that installs
+    # both: pointing a .msg user at shelfmark[email] hands them the C build
+    # they do not need and cannot complete without a compiler.
+    can_pst = reader("pypff", ".pst", "shelfmark[pst]") if psts else False
+    can_msg = reader("extract_msg", ".msg", "shelfmark[msg]") if msgs else False
     if not (can_pst or can_msg):
         return 2
 

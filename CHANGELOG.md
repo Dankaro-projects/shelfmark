@@ -2,6 +2,62 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+### Fixed
+- **A folder the walk could not open was silently dropped, and the prune
+  then deleted its rows.** `os.walk` was called without `onerror`, so a
+  directory that failed to open yielded nothing and raised nothing: every
+  file under it vanished from the run, looked stale to the prune, and was
+  deleted from the catalogue while still on disk — after which the index
+  reported itself fresh. Windows reaches this with no permission being
+  wrong, since a path over MAX_PATH raises ERROR_PATH_NOT_FOUND unless
+  long paths are enabled machine-wide. The walk now counts unreadable
+  directories and names them, `build` warns, and the prune is skipped for
+  that run rather than deleting rows it cannot vouch for. Unlike the
+  coverage floor this cause is not ambiguous, so it is stated rather than
+  offered as one of two possibilities — and there is no `--force`, because
+  the fix is on disk, not in a flag.
+- **One filename could crash every CLI report.** Windows' ANSI codepage is
+  still 1252 outside the console, so redirected output encoded with cp1252
+  and raised `UnicodeEncodeError` on the first character it lacked. A name
+  stored decomposed (NFD) carries U+0301, which cp1252 cannot represent
+  even though the precomposed form can — so a single such file replaced
+  the whole of `shelfmark stats` with a traceback. Output streams now use
+  `backslashreplace`. Only the error handler changed: re-encoding as UTF-8
+  would hand mojibake to a consumer that asked for cp1252, and paths are
+  still never normalised, because the catalogue key has to reopen the file.
+- **`init` crashed on end-of-input after writing the config.** `isatty()`
+  can report an interactive terminal while the first read still hits EOF —
+  a pty with nothing on stdin, which is how CI and agent shells run it. The
+  uncaught `EOFError` exited non-zero with the config already on disk, so
+  the install looked failed but was half-done and re-running hit "config
+  already exists". EOF and Ctrl-C now keep the announced default and say so.
+- **`year_from`/`year_to` returned "No matches" over a corpus with no
+  authored dates.** `authored_date` comes from OOXML metadata, which is
+  only read when a file can be opened, so a cloud-synced tree that is
+  mostly evicted dates almost nothing and every year-filtered search came
+  back empty while the same search without the filter returned hundreds.
+  The filter now says it excluded everything, in the same family as
+  `bad_year_range`, and the search is not recorded as a miss — a filter
+  that excluded the whole corpus is no evidence about what the corpus
+  lacks.
+- **`stats` said no `[authors]` rule could reach the files without saying
+  why.** On a mostly-evicted tree that reads as an instruction to write
+  `[authors]` rules, which is the one thing that cannot work: authorship
+  and authored dates are read from inside the file, and an evicted file is
+  never opened. The next-step block now names eviction as the cause when
+  it is the cause, and says that path rules are unaffected.
+
+### Changed
+- **The email extras are split into `[msg]` and `[pst]`.** `extract-msg`
+  resolves to wheels; `libpff-python` publishes none and compiles from C
+  source, so it fails outright on any machine without a toolchain. Joining
+  them meant a folder of `.msg` files could not be read without a compiler
+  that `.msg` never required. `[email]` still installs both. The missing-
+  reader message now names the extra that installs that one reader, and
+  says up front that `.pst` support builds from source.
+
 ## 0.4.5 — 2026-08-10
 
 ### Added

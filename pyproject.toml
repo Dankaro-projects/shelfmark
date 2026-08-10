@@ -30,8 +30,14 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-# .pst / .msg email archive ingestion
-email = ["libpff-python", "extract-msg"]
+# .pst / .msg email archive ingestion, split by what each one costs to
+# install. extract-msg resolves to wheels; libpff-python publishes none and
+# compiles from C source, so it needs a toolchain and fails outright on any
+# machine without one. Joining them meant a folder of .msg files could not
+# be read without a compiler that .msg never required.
+msg = ["extract-msg"]
+pst = ["libpff-python"]
+email = ["extract-msg", "libpff-python"]     # both; kept for compatibility
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-timeout>=2"]

@@ -316,7 +316,14 @@ def test_ingest_without_the_optional_deps_says_how_to_install(cfg, capsys,
     (mail / "a.msg").write_bytes(b"not really a msg")
 
     assert emails.ingest(cfg, prefix="Mail") == 2
-    assert "shelfmark[email]" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    # The extra named must install THIS reader and no more. shelfmark[email]
+    # also drags in libpff-python, which publishes no wheels and compiles
+    # from C source -- so the advice for a folder of .msg files used to be an
+    # install that fails on any machine without a compiler, for a reader
+    # .msg never needed.
+    assert "shelfmark[msg]" in err
+    assert "shelfmark[email]" not in err
 
 
 def test_a_msg_only_folder_does_not_need_the_pst_reader(cfg, capsys, monkeypatch):
