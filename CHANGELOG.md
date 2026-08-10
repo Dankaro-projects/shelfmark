@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.5 — 2026-08-10
 
 ### Added
 - **The status file now carries the failure streak.** A failure that has
