@@ -340,6 +340,17 @@ def menu() -> str:
     return "\n".join(f"      {k:12} {desc}" for k, _, desc in CHOICES)
 
 
+# No more answers are coming: end of input, or Ctrl-C.
+#
+# Caught at the call sites rather than wrapped around `input`, because `ask`
+# is injected — a guard living inside the default reader protects only the
+# path the tests do not take, which is the wrong way round. Neither is an
+# error: the flow already treats stopping early as legitimate ("Stop any
+# time — every answer is kept"), so both route where `quit` goes rather than
+# discarding a session of answers with a traceback.
+_STOP = (EOFError, KeyboardInterrupt)
+
+
 def run(cfg: Config, apply: bool = False, limit: int = 12,
         ask=None, say=print) -> int:
     """Ask, then write. `ask(prompt, default) -> str` is injected so the
@@ -360,10 +371,17 @@ def run(cfg: Config, apply: bool = False, limit: int = 12,
     # Asked before the subtree questions, and before giving up on having
     # any: who you are is worth recording even for a corpus already settled
     # by path rules.
+    stopped = False
     if p.author_hint:
         name, n = p.author_hint
-        got = ask(f"Most of the authored files here say '{name}' ({n} files)."
-                  f" Is that you? [Y/n] ", "y")
+        try:
+            got = ask(f"Most of the authored files here say '{name}' "
+                      f"({n} files). Is that you? [Y/n] ", "y")
+        except _STOP:
+            # No answer read. "Most files say X, is that you?" defaulting to
+            # yes on silence would write an ownership claim nobody made, and
+            # ownership is the one thing inference may not decide.
+            got, stopped = "n", True
         if got.strip().lower() in ("", "y", "yes"):
             own_author = name
             # Re-plan: until this is known, nothing reads as yours.
@@ -386,9 +404,15 @@ def run(cfg: Config, apply: bool = False, limit: int = 12,
     say(menu())
 
     for i, q in enumerate(p.questions, 1):
+        if stopped:
+            break
         say(render(q, i, len(p.questions)))
         default = q.suggestion or "skip"
-        got = ask(f"      answer [{default}]: ", default).strip() or default
+        try:
+            got = ask(f"      answer [{default}]: ", default).strip() or default
+        except _STOP:
+            say("\nStopping here — answers so far are kept.")
+            break
         if got in ("quit", "q"):
             say("\nStopping here — answers so far are kept.")
             break
