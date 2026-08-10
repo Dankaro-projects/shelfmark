@@ -2,6 +2,43 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+The theme: the trust signal was the least finished surface in the product.
+A field failure — a renamed folder that left 19,157 phantom rows answering
+queries for four days — was *detected* by every guard and *delivered* by
+none of them. Found by an external review of 0.4.2 in production use.
+
+### Fixed
+- **The CANNOT-VERIFY banner no longer asserts a cause.** The ratio behind
+  it cannot tell an OS denial from a mass move — a renamed root looks
+  identical — yet the banner said "the OS is denying this process the
+  document root" as fact, blaming macOS permissions for a rename, four
+  days running. It now names both possibilities with a remedy for each,
+  and appends the last-refresh detail (the one branch that dropped it):
+  CANNOT VERIFY plus "prune REFUSED" is what a rename actually looks like.
+- **A refused prune now leaves the status `degraded`, not `ok`.** The run
+  completed, but the catalogue knowingly lists rows whose files were gone,
+  and they answer queries. Every tool now carries a DEGRADED prefix (not
+  FAILED — rights were re-applied) on every call until it is resolved:
+  news that stops being news is how this stayed quiet. A missing extra
+  root remains `ok` with the detail as news — a laptop away from its NAS
+  is normal life, not a degradation.
+
+### Added
+- **`shelfmark stats` now ends with the disk-comparison line.** The only
+  code comparing catalogued rows against files on disk lived behind the
+  MCP server, so an operator who never ran an agent could not be told.
+  The freshness machinery moved to its own module (`freshness.py`); the
+  server re-exports it unchanged.
+- **`shelfmark hook session-start|stop` — the product owns the hook now.**
+  The README used to teach `refresh --if-needed >/dev/null 2>&1`, and
+  since every refusal speaks on stderr, that redirect discarded the only
+  delivery of the news. The adapter is silent when healthy, emits Claude
+  Code hook JSON (systemMessage for the operator, additionalContext for
+  the agent) when not, and always exits 0. The README recipe now uses it
+  and says why the silencing form must not come back.
+
 ## 0.4.3 — 2026-08-10
 
 ### Fixed

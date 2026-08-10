@@ -428,14 +428,23 @@ def cmd_hash(args) -> int:
 
 def cmd_stats(args) -> int:
     import sqlite3
-    from . import catalog
+    from . import catalog, freshness
     cfg = _load(args)
     if not cfg.db.exists():
         print(f"No catalogue at {cfg.db} — run `shelfmark refresh` first.")
         return 1
     con = sqlite3.connect(cfg.db)
-    print(catalog.stats(con))
-    con.close()
+    con.row_factory = sqlite3.Row
+    try:
+        print(catalog.stats(con))
+        # The census above reads the catalogue; this line checks it AGAINST
+        # THE DISK. It used to exist only behind the MCP server, which left
+        # the CLI structurally blind to drift — an operator who never ran an
+        # agent had no way to learn the index had stopped matching reality.
+        print()
+        print(freshness.freshness_line(con, cfg))
+    finally:
+        con.close()
     return 0
 
 
@@ -485,6 +494,84 @@ def cmd_dedupe_emails(args) -> int:
     from . import emails
     cfg = _load(args)
     print(emails.dedupe(cfg, apply=args.apply))
+    return 0
+
+
+def cmd_hook(args) -> int:
+    """Claude Code hook adapter: refresh, then speak ONLY when something is
+    wrong — as hook JSON on stdout, the one channel a hook actually has.
+
+    This exists because the README used to teach
+    `shelfmark refresh --if-needed >/dev/null 2>&1` — and since every
+    refusal and failure speaks on stderr, that redirect discarded the only
+    delivery of the news. A catalogue stayed silently wrong for four days
+    behind exactly that line. The product owns the hook now, so nobody
+    hand-rolls the silencing again.
+
+    session-start: full refresh, then the freshness line — the same check
+    the MCP server runs — delivered to the operator (systemMessage) and the
+    agent (additionalContext) when it is not a plain tick.
+    stop: refresh --if-needed, and report only a non-ok status. No walk —
+    this runs at every turn end and must stay near-free.
+
+    Always exits 0: a hook must never break the session, and shelfmark
+    being absent or unconfigured on a machine is normal."""
+    import io
+    import json
+    import sqlite3
+    from contextlib import redirect_stderr, redirect_stdout
+
+    def say(payload: dict) -> None:
+        print(json.dumps(payload, ensure_ascii=False))
+
+    # Not _load(): that raises SystemExit(2) on a config error, which would
+    # escape `except Exception` and break the exit-0 contract.
+    try:
+        cfg = config_mod.load(getattr(args, "config", None))
+    except Exception as exc:                      # noqa: BLE001
+        say({"systemMessage": f"shelfmark: cannot load config — {exc}"})
+        return 0
+
+    from . import freshness, refresh
+    quiet = io.StringIO()
+    try:
+        with redirect_stderr(quiet), redirect_stdout(quiet):
+            if args.event == "stop":
+                refresh.run_if_needed(cfg)
+            else:
+                refresh.run(cfg)
+    except Exception as exc:                      # noqa: BLE001
+        say({"systemMessage":
+             f"shelfmark: refresh raised {type(exc).__name__}: {exc}"})
+        return 0
+
+    if args.event == "stop":
+        try:
+            st = json.loads(cfg.status_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return 0
+        if st.get("state") != "ok":
+            say({"systemMessage":
+                 f"shelfmark: {st.get('state')} — {st.get('detail', '?')}"})
+        return 0
+
+    if not cfg.db.exists():
+        say({"systemMessage": f"shelfmark: no catalogue at {cfg.db} — "
+                              f"run `shelfmark refresh`"})
+        return 0
+    con = sqlite3.connect(cfg.db)
+    con.row_factory = sqlite3.Row
+    try:
+        line = freshness.freshness_line(con, cfg)
+    except Exception as exc:                      # noqa: BLE001
+        line = f"⚠ freshness check failed: {exc}"
+    finally:
+        con.close()
+    if not line.startswith("✓"):
+        say({"systemMessage": line,
+             "hookSpecificOutput": {
+                 "hookEventName": "SessionStart",
+                 "additionalContext": f"shelfmark catalogue status: {line}"}})
     return 0
 
 
@@ -636,6 +723,13 @@ def main(argv=None) -> None:
                             "drops the dirty marker when a write touched an "
                             "indexed root")
     p.set_defaults(fn=cmd_mark_dirty)
+
+    p = sub.add_parser("hook",
+                       help="Claude Code hook adapter: refresh, then speak "
+                            "only when the catalogue has bad news (hook "
+                            "JSON on stdout; always exits 0)")
+    p.add_argument("event", choices=["session-start", "stop"])
+    p.set_defaults(fn=cmd_hook)
 
     args = ap.parse_args(argv)
     raise SystemExit(args.fn(args))

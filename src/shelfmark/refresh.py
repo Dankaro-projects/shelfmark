@@ -377,9 +377,19 @@ def run(cfg: Config, force: bool = False) -> int:
         # (new files - pruned rows). prune_note carries the prune side.
         # A routine "pruned nothing" stays in the log line and OUT of the
         # status detail, or every session reads as an exception.
-        log.say(f"ok: files={after} (net {added}){prune_note} "
+        #
+        # A REFUSED prune is not "ok": the run completed, but the catalogue
+        # knowingly lists rows whose files were not on disk, and every query
+        # answers from them. "degraded" keeps that fact in the status file
+        # where the server and the hook re-read it EVERY run — a catalogue
+        # once carried 19,157 phantom rows for four days because the one
+        # refusal message was easy to miss and nothing repeated it. A
+        # missing EXTRA root stays "ok": a laptop away from its NAS is
+        # normal life, not a degradation — the detail still carries it.
+        state = "degraded" if "REFUSED" in prune_note else "ok"
+        log.say(f"{state}: files={after} (net {added}){prune_note} "
                 f"leak=0 secrets=0 fts_gap=0")
-        _write_status(cfg, "ok", prune_news or "clean", after, added)
+        _write_status(cfg, state, prune_news or "clean", after, added)
         return 0
     finally:
         lock.release()

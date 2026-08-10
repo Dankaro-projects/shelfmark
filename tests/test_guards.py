@@ -173,3 +173,22 @@ def test_a_returning_root_is_pruned_normally_again(built):
     (extra / "loose_note.md").unlink()
     assert refresh.run(built) == 0
     assert one(built, "SELECT COUNT(*) FROM files WHERE root='extra'") == 0
+
+
+def test_a_refused_prune_leaves_degraded_and_repeats(built):
+    """The status a refusal writes must say so on EVERY subsequent run, not
+    only the first. On the machine this failure is named after, the one
+    refusal message was easy to miss, nothing repeated it, and 19,157
+    phantom rows answered queries for four days. A run that keeps rows it
+    knows are stale is "degraded", never "ok" — and the next run, seeing
+    the same stale rows, must say it again."""
+    import shutil
+    from shelfmark import refresh
+    root = built.primary_root.path
+    shutil.move(str(root / "Decks"), str(root / "Archive"))
+
+    for attempt in (1, 2):
+        assert refresh.run(built) == 0, f"run {attempt}"
+        status = json.loads(built.status_path.read_text())
+        assert status["state"] == "degraded", f"run {attempt}"
+        assert "REFUSED" in status["detail"], f"run {attempt}"

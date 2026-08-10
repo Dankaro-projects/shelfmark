@@ -392,17 +392,28 @@ one refresh interval to the end of the turn. With Claude Code, in
 ```json
 {
   "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command",
+      "command": "shelfmark hook session-start", "timeout": 60}]}],
     "PostToolUse": [{"matcher": "Write|Edit|MultiEdit|NotebookEdit",
       "hooks": [{"type": "command", "command": "shelfmark mark-dirty"}]}],
     "Stop": [{"hooks": [{"type": "command",
-      "command": "shelfmark refresh --if-needed >/dev/null 2>&1"}]}]
+      "command": "shelfmark hook stop"}]}]
   }
 }
 ```
 
 `mark-dirty` drops a marker only when a write landed under an indexed root
-(near-free on every other write); `refresh --if-needed` picks it up at the
-end of the turn.
+(near-free on every other write); `hook stop` picks it up at the end of the
+turn. `hook session-start` refreshes and then checks the index against the
+disk — the same check the MCP server runs — telling you and the agent only
+when something is wrong.
+
+Do not wrap these in `>/dev/null 2>&1`. An earlier revision of this page
+taught exactly that, and it is how a catalogue stayed silently wrong for
+four days: every refusal and failure the refresh reports goes to stderr,
+so the redirect discarded the only delivery of the news. `shelfmark hook`
+is silent when the catalogue is healthy and always exits 0 — there is
+nothing left to suppress.
 
 ### If you also want it current with no client running
 

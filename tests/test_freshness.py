@@ -255,3 +255,77 @@ def test_a_restricted_path_does_not_leak_through_the_on_disk_check(srv):
     out = srv.get_file("Admin/id_rsa")
     assert out == absent.replace("zz_never_existed", "id_rsa")
     assert "IS on disk" not in out
+
+
+# ------------------------------------------------ the unreadable-root banner
+
+def test_unreadable_banner_names_both_causes(srv, built, monkeypatch):
+    """The ratio behind "unreadable" cannot tell an OS denial from a mass
+    move — a renamed root looks identical from the walk. Earlier releases
+    asserted the denial story as fact and blamed macOS permissions for a
+    folder rename, four days running. The banner must present the fork,
+    never pick a tine."""
+    monkeypatch.setattr(srv, "disk_drift",
+                        lambda con: {"state": "unreadable",
+                                     "seen": 33_079, "rows": 52_098})
+    out = srv.corpus_stats()
+    assert "CANNOT VERIFY" in out
+    assert "unreadable" in out                 # cause one, with its remedy
+    assert "really went away" in out           # cause two ...
+    assert "--force" in out                    # ... with its remedy
+    assert "OS is denying" not in out          # the old assertion of cause
+
+
+def test_unreadable_banner_carries_the_refresh_news(srv, built, monkeypatch):
+    """CANNOT VERIFY plus "prune REFUSED" reads as a rename; CANNOT VERIFY
+    alone reads as a permissions problem. This branch used to be the only
+    one that dropped the suffix — the one diagnostic that completed the
+    picture, withheld exactly where it mattered."""
+    set_status(built, state="degraded",
+               detail="prune REFUSED — 19157 of 33075 rows are stale")
+    monkeypatch.setattr(srv, "disk_drift",
+                        lambda con: {"state": "unreadable",
+                                     "seen": 33_079, "rows": 52_098})
+    out = srv.corpus_stats()
+    assert "prune REFUSED" in out
+
+
+# ------------------------------------------------------- the degraded state
+
+def test_a_degraded_refresh_is_reported_not_ok(srv, built, monkeypatch):
+    """state="degraded" is a completed run that kept rows it knows are
+    stale. It must neither read as FAILED (the run finished, rights were
+    re-applied) nor as a plain tick (queries answer from phantom rows) —
+    and it must repeat on every call until resolved."""
+    set_status(built, state="degraded",
+               detail="prune REFUSED — 40 of 100 rows are stale")
+    monkeypatch.setattr(srv, "disk_drift",
+                        lambda con: {"state": "ok", "new": 0, "modified": 0,
+                                     "deleted": 0})
+    out = srv.corpus_stats()
+    assert "prune REFUSED" in out
+    assert "FAILED" not in out
+
+
+def test_stats_carries_the_freshness_line(built, capsys):
+    """`shelfmark stats` used to be structurally blind to drift: the only
+    code comparing catalogued rows against the disk lived in the MCP
+    server, so an operator who never ran an agent could not be told."""
+    from shelfmark import cli
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--config", str(built.source), "stats"])
+    out = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "index fresh" in out or "⚠" in out or "~ index matches" in out
+
+
+def test_a_degraded_catalogue_prefixes_every_tool(srv, built):
+    """The refusal must reach an agent that never calls corpus_stats — and
+    as DEGRADED, not FAILED: the run finished and rights were re-applied,
+    but phantom rows are answering queries."""
+    set_status(built, state="degraded",
+               detail="prune REFUSED — 40 of 100 rows are stale")
+    out = srv.search_docs("status report", limit=3)
+    assert out.startswith("⚠")
+    assert "DEGRADED" in out
+    assert "FAILED" not in out
