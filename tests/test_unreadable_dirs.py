@@ -69,6 +69,26 @@ def test_an_unreadable_directory_is_counted_not_swallowed(
     assert any(DEEP in p for p in stats["unreadable_paths"])
 
 
+def test_a_root_that_will_not_open_scopes_to_the_whole_root(cfg, monkeypatch):
+    """macOS TCC denies a documents root to a background process exactly this
+    way. The root keys as "." against itself -- a relative path, not a
+    prefix, and truthy -- so an unnormalised key would scope the protection
+    to nothing and the rows would be pruned after all."""
+    real = os.scandir
+    root = str(cfg.primary_root.path)
+
+    def failing(path=".", *a, **kw):
+        if str(path) == root:
+            raise OSError(13, "Operation not permitted", str(path))
+        return real(path, *a, **kw)
+
+    monkeypatch.setattr(os, "scandir", failing)
+    stats: dict = {}
+    list(catalog.walk(cfg, stats=stats))
+    assert "" in stats["unreadable_keys"], (
+        f"expected the whole-root marker, got {stats['unreadable_keys']!r}")
+
+
 def test_the_build_reports_the_unreadable_folder(
         corpus_with_subtree, cfg, blind_to_subtree, capsys):
     catalog.build(cfg, do_hash=False)
@@ -102,7 +122,43 @@ def test_a_refresh_that_cannot_read_a_folder_keeps_its_rows(
     assert after == 2, (
         "rows were pruned for files that are still on disk -- the walk could "
         "not see them, which is not the same as their being deleted")
-    assert "prune SKIPPED" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "could not be read" in err
+    assert "KEPT" in err
+
+
+def test_a_deletion_elsewhere_still_prunes(
+        corpus_with_subtree, built, blind_to_subtree, capsys):
+    """The rest of the corpus must keep pruning while one folder is
+    unreadable.
+
+    Skipping the whole prune would be the easy fix and a worse bug: a folder
+    that never opens -- root-owned, lost+found, a macOS .Trashes -- would
+    disable pruning for the entire corpus on every future run, and phantom
+    rows for genuinely deleted files would pile up with no way to clear
+    them. That failure is invisible on the platform the original bug was
+    found on and routine on the other two.
+    """
+    victim = corpus_with_subtree / "Decks" / "draft_0.md"
+    assert victim.exists()
+    victim.unlink()
+
+    assert refresh.run(built) == 0
+
+    con = sqlite3.connect(built.db)
+    try:
+        gone = con.execute(
+            "SELECT COUNT(*) FROM files WHERE path LIKE ?",
+            ("%draft_0.md",)).fetchone()[0]
+        kept = con.execute(
+            "SELECT COUNT(*) FROM files WHERE path LIKE ?",
+            (f"%{DEEP}%",)).fetchone()[0]
+    finally:
+        con.close()
+    assert gone == 0, ("a real deletion outside the unreadable folder was "
+                       "not pruned -- one bad folder must not freeze the "
+                       "whole prune")
+    assert kept == 2, "rows under the unreadable folder must still be spared"
 
 
 def test_the_subtree_returns_when_it_becomes_readable_again(

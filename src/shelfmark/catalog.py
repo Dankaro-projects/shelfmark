@@ -289,10 +289,14 @@ def walk(cfg: Config, stats: dict | None = None):
     ERROR_PATH_NOT_FOUND unless long paths are enabled machine-wide.
 
     `stats`, if given, receives a `symlinks` count and an `unreadable_dirs`
-    count (with `unreadable_paths` examples) so both skips are reported
-    rather than silent."""
+    count so both skips are reported rather than silent. It also receives
+    `unreadable_keys` — the catalogue-relative prefixes that went unseen —
+    because "which rows must the prune not touch" is a different question
+    from "what do I tell the operator", and only the walk knows the answer
+    to either."""
     seen_links = 0
     unreadable: list[str] = []
+    unreadable_keys: list[str] = []
     guard = _sidecars(cfg)
 
     def files_under(base: Path, to_key):
@@ -302,7 +306,26 @@ def walk(cfg: Config, stats: dict | None = None):
             # os.walk calls this instead of discarding the error. Record and
             # continue: one unreadable folder must not abort a whole refresh,
             # but it must not pass for an empty one either.
-            unreadable.append(str(getattr(exc, "filename", "") or base))
+            failed = str(getattr(exc, "filename", "") or base)
+            unreadable.append(failed)
+            # The catalogue key for the same folder, so the prune can spare
+            # exactly the rows underneath it and nothing else. A path that
+            # will not resolve under this root tells us nothing about which
+            # rows are at risk, so it is reported but not used for scoping.
+            try:
+                key = to_key(Path(failed))
+            except (ValueError, OSError):
+                return
+            # A root that will not open keys as "." against itself ("label/."
+            # for a labelled root) — a relative path, not a prefix, and
+            # truthy, so it would silently scope to nothing. macOS TCC denies
+            # exactly this way, which is the case that must not be the one
+            # that slips. Normalise to the root's own prefix instead.
+            if key == ".":
+                key = ""
+            elif key.endswith("/."):
+                key = key[:-2]
+            unreadable_keys.append(key)
 
         # followlinks defaults to False, which is what declines to descend a
         # symlinked directory. test_a_symlinked_directory_is_not_descended
@@ -348,6 +371,7 @@ def walk(cfg: Config, stats: dict | None = None):
         stats["symlinks"] = seen_links
         stats["unreadable_dirs"] = len(unreadable)
         stats["unreadable_paths"] = unreadable[:10]
+        stats["unreadable_keys"] = unreadable_keys
 
 
 # ------------------------------------------------------------------- ingest
@@ -542,6 +566,34 @@ def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
 
     flush_unchanged(force=True)
     flush_rematerialised(force=True)
+
+    # Rows under a folder the walk could not open carry an old seen_at for
+    # exactly the same reason a deleted file does, so the prune would delete
+    # files that are still on disk. Stamp them as seen: the walk knows which
+    # subtrees went unseen, and that is the only place the distinction
+    # exists.
+    #
+    # Scoped to those subtrees, deliberately. Skipping the whole prune
+    # instead would mean one permanently unreadable folder — a root-owned
+    # directory, lost+found, a macOS .Trashes — disables pruning for the
+    # entire corpus on every future run, and phantom rows for genuinely
+    # deleted files would accumulate forever with no way to clear them.
+    # Everything outside the unseen subtrees prunes normally.
+    for key in counts.get("unreadable_keys", []):
+        if key:
+            # substr(), not LIKE: a folder named "report_2024" is a valid
+            # LIKE pattern where "_" matches any character, so the prefix
+            # would spare rows it has no business sparing. Escaping LIKE
+            # correctly needs an ESCAPE clause and three substitutions;
+            # comparing a prefix needs neither.
+            prefix = key + "/"
+            cur.execute(
+                "UPDATE files SET seen_at=? WHERE path=? OR substr(path,1,?)=?",
+                (now, key, len(prefix), prefix))
+        else:
+            # The root itself would not open: every row is at risk, and no
+            # prefix can express that.
+            cur.execute("UPDATE files SET seen_at=?", (now,))
     con.commit()
     counts["run_ts"] = now
     counts["roots_missing"] = [

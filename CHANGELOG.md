@@ -13,11 +13,15 @@ Notable changes per release. Dates are UTC.
   reported itself fresh. Windows reaches this with no permission being
   wrong, since a path over MAX_PATH raises ERROR_PATH_NOT_FOUND unless
   long paths are enabled machine-wide. The walk now counts unreadable
-  directories and names them, `build` warns, and the prune is skipped for
-  that run rather than deleting rows it cannot vouch for. Unlike the
-  coverage floor this cause is not ambiguous, so it is stated rather than
-  offered as one of two possibilities — and there is no `--force`, because
-  the fix is on disk, not in a flag.
+  directories and names them, `build` warns, and the builder stamps the
+  rows under those folders as seen so the prune cannot delete files it
+  never looked at. Scoped to those subtrees deliberately: skipping the
+  whole prune would mean one permanently unreadable folder — a root-owned
+  directory, `lost+found`, a macOS `.Trashes` — disables pruning for the
+  entire corpus forever, so the rest of the tree still prunes normally. A
+  root that will not open at all (macOS TCC denies a documents folder to
+  background processes exactly this way) scopes to the whole root, which
+  the coverage floor then reports as before.
 - **One filename could crash every CLI report.** Windows' ANSI codepage is
   still 1252 outside the console, so redirected output encoded with cp1252
   and raised `UnicodeEncodeError` on the first character it lacked. A name

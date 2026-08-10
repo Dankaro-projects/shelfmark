@@ -296,26 +296,27 @@ def run(cfg: Config, force: bool = False) -> int:
         try:
             stale_sql = "seen_at IS NULL OR seen_at < ?"
             if counts.get("unreadable_dirs"):
-                # Rows under a folder the walk could not open carry an old
-                # seen_at for exactly the same reason a deleted file does, so
-                # the prune would delete files that are still on disk. Unlike
-                # the coverage floor this cause is NOT ambiguous — the walk
-                # was told which folders failed — so name it and keep the
-                # rows. No --force here: nothing is being refused that the
-                # operator could reasonably overrule, and the fix (shorten
-                # the path, grant the permission) is on disk, not in a flag.
+                # The builder has already stamped the rows under those
+                # folders as seen, so the prune below cannot delete files
+                # that are merely unseen. Nothing is skipped: the rest of the
+                # corpus prunes normally, because one folder that will never
+                # open — root-owned, lost+found, a macOS .Trashes — must not
+                # disable pruning for everything else forever.
+                #
+                # Reported anyway. The operator's index is now knowingly
+                # incomplete, and a guard that quietly compensates teaches
+                # nothing about the folder it is compensating for.
                 n = counts["unreadable_dirs"]
-                prune_note = f" prune=skipped(unreadable-dirs:{n})"
-                prune_news = (f"prune skipped — {n} folder(s) could not be "
-                              f"read; their rows were kept")
-                log.say(f"prune skipped: {n} unreadable folder(s)")
+                log.say(f"{n} unreadable folder(s); their rows kept, "
+                        f"the rest pruned normally")
                 for up in counts.get("unreadable_paths", []):
                     log.say(f"  unreadable: {up}")
-                _tell(f"\nprune SKIPPED — {n} folder(s) could not be read, so "
-                      f"their files could not be seen this run.")
-                _tell("  Their rows were kept: deleting them would drop files "
-                      "that are still on disk.")
-            elif counts["roots_missing"]:
+                _tell(f"\n{n} folder(s) could not be read, so their contents "
+                      f"were not seen this run.")
+                _tell("  Their rows were KEPT (deleting them would drop files "
+                      "that are still on disk); everything else pruned "
+                      "normally.")
+            if counts["roots_missing"]:
                 miss = ",".join(counts["roots_missing"])
                 prune_note = " prune=skipped(roots-missing)"
                 prune_news = f"prune skipped — roots not on disk: {miss}"
