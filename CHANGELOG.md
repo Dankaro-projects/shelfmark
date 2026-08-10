@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.3 — 2026-08-10
 
 ### Fixed
 - The MCP handshake's `serverInfo.version` now reports shelfmark's own
