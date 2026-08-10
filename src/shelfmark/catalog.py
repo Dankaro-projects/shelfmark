@@ -23,7 +23,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 
-from .config import Config, has_prefix
+from .config import Config, extended, has_prefix, unextended
 # is_evicted is re-exported: emails.py and the tests reach it as
 # catalog.is_evicted, and ingest() resolves it through this module's
 # namespace so a monkeypatch here still lands. The definition lives in
@@ -353,24 +353,36 @@ def walk(cfg: Config, stats: dict | None = None):
                 p = Path(full)
                 # Defence in depth: config refuses a catalogue inside a root,
                 # but never index our own database or its sidecars.
-                if Path(os.path.realpath(p)) in guard:
+                #
+                # unextended(): on Windows the walk runs over \\?\ paths, and
+                # a prefixed path never equals its plain twin. Comparing the
+                # two forms would leave this guard permanently unmatched —
+                # a check that silently stops checking.
+                if unextended(os.path.realpath(p)) in guard:
                     continue
                 yield p, to_key(p)
 
-    primary = cfg.primary_root.path
-    if primary.is_dir():
+    # Walk the extended form so a tree deeper than MAX_PATH is catalogued
+    # instead of reported missing. Keys are still taken relative to the same
+    # extended base, so the catalogue grammar is unchanged: the prefix
+    # cancels out of `relative_to` and never reaches the database.
+    primary = extended(cfg.primary_root.path)
+    if cfg.primary_root.path.is_dir():
         yield from files_under(primary, lambda p: rel_key(p, primary))
 
     for label, base in cfg.extra_roots.items():
         if not base.is_dir():
             continue
-        yield from files_under(base, lambda p, b=base, l=label:
+        ext_base = extended(base)
+        yield from files_under(ext_base, lambda p, b=ext_base, l=label:
                                rel_key(p, b, l))
 
     if stats is not None:
         stats["symlinks"] = seen_links
         stats["unreadable_dirs"] = len(unreadable)
-        stats["unreadable_paths"] = unreadable[:10]
+        # Plain form: this is printed. \\?\ in an error message is noise the
+        # operator has to mentally strip before recognising their own folder.
+        stats["unreadable_paths"] = [str(unextended(u)) for u in unreadable[:10]]
         stats["unreadable_keys"] = unreadable_keys
 
 

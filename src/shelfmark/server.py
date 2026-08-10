@@ -38,7 +38,7 @@ from . import __version__
 from . import config as config_mod
 from . import freshness as freshness_mod
 from .catalog import is_evicted
-from .config import Config
+from .config import Config, extended
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", message=r".*incomplete definition.*")
@@ -730,10 +730,15 @@ def get_file(path: str) -> str:
                 sealed_by_rule = derive(path, None, None, c)[0] == "RESTRICTED"
                 try:
                     disk_probe = c.abs_path(path)
+                    # Containment is decided on the plain path — _inside
+                    # resolves both sides, and a \\?\ path would compare
+                    # unequal to every root, quietly answering "outside" for
+                    # everything. Only the existence check is prefixed, so a
+                    # file deeper than MAX_PATH is found rather than denied.
                     on_disk = (not sealed_by_rule
                                and any(_inside(disk_probe, root.path)
                                        for root in c.roots)
-                               and disk_probe.exists())
+                               and extended(disk_probe).exists())
                 except Exception:                 # noqa: BLE001
                     on_disk = False
                 if on_disk:
@@ -759,7 +764,9 @@ def get_file(path: str) -> str:
     # one syscall, and true even between refreshes.
     disk = cfg().abs_path(r["path"])
     try:
-        st = disk.stat()
+        # Prefixed for the syscall only; `disk` stays plain because it is
+        # printed below as the absolute location.
+        st = extended(disk).stat()
         on_disk = "yes"
         materialised = not is_evicted(st)
     except OSError:

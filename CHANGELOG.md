@@ -4,6 +4,20 @@ Notable changes per release. Dates are UTC.
 
 ## Unreleased
 
+### Added
+- **Windows paths over 260 characters are now catalogued, not just
+  reported.** Win32 refuses them with ERROR_PATH_NOT_FOUND unless the
+  machine-wide `LongPathsEnabled` key is set, which needs an administrator
+  — so "enable it and re-run" is advice a large share of operators cannot
+  take, and the files are perfectly readable through the `\\?\` prefix,
+  which needs no privilege at all. The walk, the hash backfill and
+  `get_file`'s residency check now address the filesystem through that
+  prefix. Catalogue keys are unchanged: keys are taken relative to the same
+  prefixed base, so it cancels out and never reaches the database. The
+  prefix is for syscalls only — `abs_path()` still returns the plain form,
+  because that is what gets printed and what containment checks compare,
+  and a prefixed path compares unequal to every root.
+
 ### Fixed
 - **A folder the walk could not open was silently dropped, and the prune
   then deleted its rows.** `os.walk` was called without `onerror`, so a

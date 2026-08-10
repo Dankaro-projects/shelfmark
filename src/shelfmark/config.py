@@ -30,6 +30,54 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "shelfmark" / "config.toml"
 DEFAULT_DB_PATH = Path.home() / ".local" / "share" / "shelfmark" / "catalog.db"
 
 
+_EXT_PREFIX = "\\\\?\\"
+
+
+def extended(p) -> Path:
+    """The form of `p` to hand to the filesystem. Identity off Windows.
+
+    Win32 rejects any path over 260 characters with ERROR_PATH_NOT_FOUND
+    unless the machine-wide LongPathsEnabled key is set — which needs an
+    administrator, so "enable it and re-run" is advice a large share of
+    operators cannot take. The `\\\\?\\` prefix lifts the limit per call
+    instead, with no registry, no privilege and no install step, so deep
+    trees are catalogued rather than reported as missing.
+
+    The prefix also switches OFF Win32 path normalisation, which is why the
+    path is made absolute first: `\\\\?\\` accepts no relative components and
+    no forward slashes, and would otherwise fail on input that plain calls
+    accept. UNC paths take their own spelling — \\\\server\\share becomes
+    \\\\?\\UNC\\server\\share — and a path that already carries the prefix is
+    returned untouched, so this is safe to apply twice.
+
+    Kept out of `abs_path` deliberately: prefixed paths are for syscalls,
+    not for humans or for comparisons. See `unextended()`.
+    """
+    if os.name != "nt":
+        return Path(p)
+    s = os.fspath(p)
+    if s.startswith(_EXT_PREFIX):
+        return Path(s)
+    s = os.path.abspath(s)
+    if s.startswith("\\\\"):                     # UNC: \\server\share
+        return Path(_EXT_PREFIX + "UNC" + s[1:])
+    return Path(_EXT_PREFIX + s)
+
+
+def unextended(p) -> Path:
+    """Strip the Windows extended prefix, for display and for comparison.
+
+    A prefixed path never equals its plain twin, so anything that compares
+    paths — the sidecar guard, root containment — has to meet on this form
+    or the check silently stops matching."""
+    s = os.fspath(p)
+    if s.startswith(_EXT_PREFIX + "UNC\\"):
+        return Path("\\\\" + s[len(_EXT_PREFIX) + 4:])
+    if s.startswith(_EXT_PREFIX):
+        return Path(s[len(_EXT_PREFIX):])
+    return Path(s)
+
+
 def _inside(child: Path, parent: Path) -> bool:
     """Is `child` at or under `parent`, once both are resolved?
 
@@ -181,7 +229,11 @@ class Config:
 
         Not every row is primary-root-relative: extra-root rows carry a label
         prefix and live elsewhere. Joining those onto the primary root yields
-        a path that does not exist."""
+        a path that does not exist.
+
+        Returns the PLAIN form: this is what gets printed, and what
+        containment checks compare. Anything that actually touches the
+        filesystem must pass it through `extended()` first."""
         for label, base in self.extra_roots.items():
             if rel == label or rel.startswith(label + "/"):
                 return base / rel[len(label):].lstrip("/")

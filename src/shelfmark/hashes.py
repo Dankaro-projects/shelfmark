@@ -21,7 +21,7 @@ import sys
 import time
 
 from .catalog import sha256_of
-from .config import Config
+from .config import Config, extended
 
 
 def backfill(cfg: Config, limit: int = 0, dry_run: bool = False) -> int:
@@ -46,7 +46,10 @@ def backfill(cfg: Config, limit: int = 0, dry_run: bool = False) -> int:
         t0 = time.monotonic()
 
         for rel, _ in rows:
-            p = cfg.abs_path(rel)
+            # extended(): this opens the file, and a row deeper than
+            # MAX_PATH would otherwise stat as "gone" and never be hashed —
+            # which reads as a deleted file rather than an unreachable one.
+            p = extended(cfg.abs_path(rel))
             try:
                 st = p.stat()
             except OSError:

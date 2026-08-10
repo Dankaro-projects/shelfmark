@@ -74,11 +74,14 @@ def test_a_root_that_will_not_open_scopes_to_the_whole_root(cfg, monkeypatch):
     way. The root keys as "." against itself -- a relative path, not a
     prefix, and truthy -- so an unnormalised key would scope the protection
     to nothing and the rows would be pruned after all."""
+    from shelfmark.config import unextended
     real = os.scandir
-    root = str(cfg.primary_root.path)
+    root = cfg.primary_root.path
 
     def failing(path=".", *a, **kw):
-        if str(path) == root:
+        # Compared through unextended(): on Windows the walk hands scandir
+        # the \\?\ form, which is not string-equal to the configured root.
+        if unextended(path) == root:
             raise OSError(13, "Operation not permitted", str(path))
         return real(path, *a, **kw)
 
