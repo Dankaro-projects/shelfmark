@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -32,10 +33,14 @@ LEAF = "buried_report.md"
 
 # ------------------------------------------------------------ the helper
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX behaviour")
 def test_extended_is_identity_off_windows():
-    if os.name == "nt":
-        pytest.skip("POSIX behaviour")
-    assert extended("/tmp/a/b") == os.path.join("/tmp", "a", "b")
+    r"""Nothing about POSIX paths changes -- there is no limit to lift, and a
+    \\?\ prefix there would be a literal directory name."""
+    p = Path("/tmp/a/b")
+    assert extended(p) == p
+    assert extended(str(p)) == p
+    assert unextended(extended(p)) == p
 
 
 @WINDOWS_ONLY
