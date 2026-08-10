@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "shelfmark"
-version = "0.4.3"
+version = "0.4.4"
 description = "Give AI agents the right context, not your entire filesystem. A local, governed, metadata-only catalogue of the documents you already have — built for MCP."
 readme = "README.md"
 requires-python = ">=3.11"

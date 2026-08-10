@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.4 — 2026-08-10
 
 The theme: the trust signal was the least finished surface in the product.
 A field failure — a renamed folder that left 19,157 phantom rows answering
