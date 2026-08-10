@@ -42,6 +42,8 @@ jobs:
         run: |
           if [ -n "${{ matrix.mcp }}" ]; then PIN="--with mcp==${{ matrix.mcp }}"; else PIN=""; fi
           uv run --isolated $PIN --with-editable . python -c "
-          import shelfmark.server as s
+          import shelfmark, shelfmark.server as s
           assert s.mcp is not None
-          print('server constructed OK')"
+          v = s.mcp._mcp_server.create_initialization_options().server_version
+          assert v == shelfmark.__version__, f'handshake says {v}'
+          print('server constructed OK, handshake version', v)"

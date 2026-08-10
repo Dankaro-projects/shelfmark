@@ -2,6 +2,17 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+### Fixed
+- The MCP handshake's `serverInfo.version` now reports shelfmark's own
+  version. `FastMCP` takes no version argument and its lowlevel server
+  defaults to the `mcp` package's — so clients displayed shelfmark as
+  whatever mcp release it shipped with (0.4.2 introduced itself as
+  "1.29.0"). Same class as the 0.2.0 `--version` bug, on the other entry
+  point; the version is read from installed metadata, and the mcp-range CI
+  job now asserts the handshake value at both declared bounds.
+
 ## 0.4.2 — 2026-08-10
 
 ### Fixed

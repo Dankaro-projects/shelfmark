@@ -34,6 +34,7 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore", message=r".*incomplete definition.*")
     from mcp.server.fastmcp import FastMCP
 
+from . import __version__
 from . import config as config_mod
 from .catalog import is_evicted
 from .config import Config
@@ -41,6 +42,14 @@ from .config import Config
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", message=r".*incomplete definition.*")
     mcp = FastMCP("shelfmark")
+# FastMCP takes no version argument, and the lowlevel server it wraps
+# defaults the handshake's serverInfo.version to the mcp PACKAGE's own —
+# so every client displayed shelfmark as whatever mcp release it shipped
+# with. Same class as the 0.2.0 --version lie, on the other entry point:
+# the version is read from installed metadata, never left for a bystander
+# to fill in. Verified against both declared mcp bounds; the mcp-range CI
+# job asserts it stays true at the floor.
+mcp._mcp_server.version = __version__
 
 _CFG: Config | None = None
 

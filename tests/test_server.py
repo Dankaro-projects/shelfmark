@@ -141,3 +141,14 @@ def test_selftest_runs_end_to_end(srv, capsys):
     srv.selftest()
     out = capsys.readouterr().out
     assert "shelfmark corpus" in out
+
+
+def test_the_handshake_reports_shelfmarks_version_not_mcps():
+    """serverInfo.version is what every MCP client displays for this server.
+    Left unset, FastMCP's lowlevel server fills in the mcp PACKAGE version —
+    0.4.2 introduced itself to clients as mcp 1.29.0. Same class as the
+    0.2.0 --version lie, on the other entry point."""
+    import shelfmark
+    from shelfmark import server
+    opts = server.mcp._mcp_server.create_initialization_options()
+    assert opts.server_version == shelfmark.__version__
