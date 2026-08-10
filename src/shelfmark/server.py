@@ -143,6 +143,35 @@ def bad_year_range(year_from, year_to):
     return None
 
 
+def undated_corpus(con, year_from, year_to):
+    """A year filter over a corpus that carries no authored dates excludes
+    every row, whatever the query — so 'No matches' is a statement about the
+    filter, not about the corpus, and reads as the opposite of the truth.
+
+    authored_date comes from OOXML metadata, which is only read when the file
+    can be opened. A cloud-synced tree that is mostly evicted therefore dates
+    almost nothing, and every year-filtered search returns empty while the
+    same search without the filter returns hundreds. Left unexplained, the
+    caller concludes the documents do not exist.
+
+    Only reached when a search already came back empty, so the count costs
+    nothing on the path that found something.
+    """
+    if not (year_from or year_to):
+        return None
+    dated, total = con.execute(
+        "SELECT COUNT(authored_date), COUNT(*) FROM files").fetchone()
+    if dated or not total:
+        return None
+    return (f"No file in this catalogue carries an authored date, so any "
+            f"year filter excludes all {total} of them — this result says "
+            f"nothing about what the corpus holds. Search again without "
+            f"year_from/year_to.\n"
+            f"Dates come from OOXML metadata, which is only read when a file "
+            f"can be opened; a cloud-synced tree that is still evicted has "
+            f"none to read.")
+
+
 def clamp(limit, default=20):
     """Bound a caller-supplied limit. 0 and negatives mean 'unspecified' and
     fall back to the default — collapsing them to 1 returns a single row
@@ -386,10 +415,19 @@ def search_docs(
     try:
         rows, total, used, err = fetch_fts(con, sql, count_sql, match, strict,
                                            params, clamp(limit))
+        # Asked while the handle is open, and only when there is an emptiness
+        # to explain.
+        undated = None if (rows or err) else undated_corpus(
+            con, year_from, year_to)
     finally:
         con.close()
     if err:
         return err
+    if undated:
+        # Not recorded as a miss, for the same reason a bad filter is not:
+        # the filter excluded everything, so this is no evidence about what
+        # the corpus lacks.
+        return with_warning(undated)
 
     if not rows:
         # Recorded here and NOT on the earlier returns: a bad filter, an

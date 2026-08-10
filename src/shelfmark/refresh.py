@@ -295,7 +295,27 @@ def run(cfg: Config, force: bool = False) -> int:
         con = sqlite3.connect(cfg.db)
         try:
             stale_sql = "seen_at IS NULL OR seen_at < ?"
-            if counts["roots_missing"]:
+            if counts.get("unreadable_dirs"):
+                # Rows under a folder the walk could not open carry an old
+                # seen_at for exactly the same reason a deleted file does, so
+                # the prune would delete files that are still on disk. Unlike
+                # the coverage floor this cause is NOT ambiguous — the walk
+                # was told which folders failed — so name it and keep the
+                # rows. No --force here: nothing is being refused that the
+                # operator could reasonably overrule, and the fix (shorten
+                # the path, grant the permission) is on disk, not in a flag.
+                n = counts["unreadable_dirs"]
+                prune_note = f" prune=skipped(unreadable-dirs:{n})"
+                prune_news = (f"prune skipped — {n} folder(s) could not be "
+                              f"read; their rows were kept")
+                log.say(f"prune skipped: {n} unreadable folder(s)")
+                for up in counts.get("unreadable_paths", []):
+                    log.say(f"  unreadable: {up}")
+                _tell(f"\nprune SKIPPED — {n} folder(s) could not be read, so "
+                      f"their files could not be seen this run.")
+                _tell("  Their rows were kept: deleting them would drop files "
+                      "that are still on disk.")
+            elif counts["roots_missing"]:
                 miss = ",".join(counts["roots_missing"])
                 prune_note = " prune=skipped(roots-missing)"
                 prune_news = f"prune skipped — roots not on disk: {miss}"

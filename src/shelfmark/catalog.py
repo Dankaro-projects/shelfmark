@@ -279,20 +279,38 @@ def walk(cfg: Config, stats: dict | None = None):
     the files too. A tree you do mean to index is an extra root — saying so
     in config is the honest way to widen the boundary.
 
-    `stats`, if given, receives a `symlinks` count so the skip is reported
+    A DIRECTORY THAT WILL NOT OPEN IS COUNTED, NEVER SWALLOWED. os.walk's
+    default onerror is None, which discards the error and yields nothing for
+    that subtree — the files simply cease to exist as far as every caller is
+    concerned. That is the failure this module exists to prevent: the rows
+    then look stale to the prune and get deleted, and the catalogue reports
+    itself fresh over a hole. Windows reaches this state routinely without
+    any permission being wrong: a path over MAX_PATH raises
+    ERROR_PATH_NOT_FOUND unless long paths are enabled machine-wide.
+
+    `stats`, if given, receives a `symlinks` count and an `unreadable_dirs`
+    count (with `unreadable_paths` examples) so both skips are reported
     rather than silent."""
     seen_links = 0
+    unreadable: list[str] = []
     guard = _sidecars(cfg)
 
     def files_under(base: Path, to_key):
         nonlocal seen_links
+
+        def on_error(exc: OSError) -> None:
+            # os.walk calls this instead of discarding the error. Record and
+            # continue: one unreadable folder must not abort a whole refresh,
+            # but it must not pass for an empty one either.
+            unreadable.append(str(getattr(exc, "filename", "") or base))
+
         # followlinks defaults to False, which is what declines to descend a
         # symlinked directory. test_a_symlinked_directory_is_not_descended
         # guards the behaviour, so it survives anyone changing the mechanism.
         # Junctions are the Windows way to plant the same escape, and walk's
         # symlink refusal does not cover them — prune them here, counted with
         # the symlinks so the skip is reported, not silent.
-        for dirpath, dirnames, filenames in os.walk(base):
+        for dirpath, dirnames, filenames in os.walk(base, onerror=on_error):
             keep = []
             for d in dirnames:
                 if d in cfg.skip_dirs:
@@ -328,6 +346,8 @@ def walk(cfg: Config, stats: dict | None = None):
 
     if stats is not None:
         stats["symlinks"] = seen_links
+        stats["unreadable_dirs"] = len(unreadable)
+        stats["unreadable_paths"] = unreadable[:10]
 
 
 # ------------------------------------------------------------------- ingest
@@ -338,7 +358,8 @@ def ingest(con: sqlite3.Connection, cfg: Config, do_hash: bool = True) -> dict:
         "SELECT path, bytes, mtime, evicted, status FROM files")}
     counts = {"new": 0, "updated": 0, "skipped": 0, "evicted": 0,
               "rematerialised": 0, "corrupt": 0, "restricted": 0, "total": 0,
-              "symlinks": 0, "corrupt_paths": []}
+              "symlinks": 0, "corrupt_paths": [],
+              "unreadable_dirs": 0, "unreadable_paths": []}
     # Microseconds, not seconds: the prune compares seen_at < run_ts, and two
     # refreshes inside the same second (hooks firing back-to-back) would make
     # a deletion invisible to the second one at coarser resolution.
@@ -576,11 +597,30 @@ def stats(con: sqlite3.Connection) -> str:
         pct = unknown * 100 // total
         no_author, = q("SELECT COUNT(*) FROM files WHERE rights='UNKNOWN'"
                        " AND author IS NULL").fetchone()
+        # Say WHY the authorship is missing when the engine actually knows.
+        # Authorship and authored_date are read from OOXML, and probing is
+        # skipped for evicted files — so on a mostly-evicted cloud tree the
+        # absence is not a gap in the operator's config, it is the residency.
+        # Without that sentence "no [authors] rule can reach them" reads as
+        # an instruction to go and write [authors] rules, which is the one
+        # thing that cannot work here.
+        evicted, = q("SELECT COUNT(*) FROM files WHERE evicted=1").fetchone()
+        why = ""
+        if evicted * 100 // total >= 50:
+            why = (f"  {evicted * 100 // total}% of the corpus is cloud-"
+                   f"evicted, which is why: authorship and authored dates "
+                   f"are\n"
+                   f"  read from inside the file, and an evicted file is "
+                   f"never opened. Year filters are inert for the same "
+                   f"reason.\n"
+                   f"  Path rules do not care — they read the path, which is "
+                   f"always there.\n")
         out.append(
             f"=== next step ===\n"
             f"  {pct}% of the catalogue is UNKNOWN rights ({unknown} of "
             f"{total}), and {no_author} of those carry no author at all —\n"
             f"  so no [authors] rule can reach them. Only path rules can.\n"
+            + why +
             f"  UNKNOWN is never returned under shareable_only, so that "
             f"filter will look empty until they exist.\n"
             f"  Run:  shelfmark review\n")
@@ -602,6 +642,18 @@ def build(cfg: Config, rebuild: bool = False, do_hash: bool = True) -> dict:
               f"rematerialised {c['rematerialised']}", file=sys.stderr)
         print(f"evicted {c['evicted']}  corrupt {c['corrupt']}  "
               f"restricted {c['restricted']}", file=sys.stderr)
+        # A folder the walk could not open is not a detail. Everything under
+        # it is missing from this run, so say it here rather than let the
+        # counts above read as a complete pass.
+        if c["unreadable_dirs"]:
+            print(f"\nWARNING: {c['unreadable_dirs']} folder(s) could not be "
+                  f"read — everything under them is MISSING from this run.",
+                  file=sys.stderr)
+            for up in c["unreadable_paths"]:
+                print(f"  unreadable: {up}", file=sys.stderr)
+            print("  On Windows this is usually a path over 260 characters: "
+                  "enable LongPathsEnabled, or shorten the folder names.",
+                  file=sys.stderr)
         # Only THIS run's corrupt files, never the cumulative DB state — the
         # summary describes what just happened, and a list that outgrew the
         # count it sits under would say the opposite of what it means.

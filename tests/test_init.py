@@ -144,6 +144,45 @@ def test_a_bad_answer_keeps_the_config_untouched(tmp_path, home, capsys):
     assert probe(tmp_path, "/no/such/folder") == home / "Documents"
 
 
+def test_end_of_input_keeps_the_default_instead_of_crashing(tmp_path, home,
+                                                            capsys):
+    """isatty() can say interactive while the first read still hits EOF --
+    a pty with nothing on stdin, which is how CI and agent shells run this.
+    The config is already written by then, so an uncaught EOFError left a
+    config behind AND exited non-zero: the install looked failed but was
+    half-done, and re-running hit 'config already exists'."""
+    from shelfmark import config as config_mod
+    paper = home / "Paperwork"
+    paper.mkdir()
+    (paper / "doc.docx").write_text("x")
+    run_init(tmp_path, capsys)
+
+    def eof(prompt, default):
+        raise EOFError
+
+    cfg_file = tmp_path / "cfg" / "config.toml"
+    cli._probe_written_root(cfg_file, ask=eof)          # must not raise
+    assert config_mod.load(cfg_file).primary_root.path == home / "Documents"
+    assert "No answer read" in capsys.readouterr().err
+
+
+def test_interrupting_the_prompt_keeps_the_default(tmp_path, home, capsys):
+    """Ctrl-C at the prompt has the same shape: the operator declined, which
+    is not a reason to abandon a config that is already on disk."""
+    from shelfmark import config as config_mod
+    paper = home / "Paperwork"
+    paper.mkdir()
+    (paper / "doc.docx").write_text("x")
+    run_init(tmp_path, capsys)
+
+    def interrupted(prompt, default):
+        raise KeyboardInterrupt
+
+    cfg_file = tmp_path / "cfg" / "config.toml"
+    cli._probe_written_root(cfg_file, ask=interrupted)
+    assert config_mod.load(cfg_file).primary_root.path == home / "Documents"
+
+
 def test_init_does_not_follow_symlinks_out_of_the_probe(tmp_path, home,
                                                         capsys):
     """The roots are the trust boundary from the very first command."""

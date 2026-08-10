@@ -273,8 +273,19 @@ def _probe_written_root(cfg_path, ask=None) -> None:
         unit = "document file" if k == 1 else "document files"
         print(f"  {i}. {home / name}  (~{k} {unit})", file=sys.stderr)
     ask = ask or (lambda prompt, default: input(prompt) or default)
-    got = ask(f"Index which folder? [1] — a number, a path, or 'k' to keep "
-              f"{root}: ", "1").strip()
+    try:
+        got = ask(f"Index which folder? [1] — a number, a path, or 'k' to "
+                  f"keep {root}: ", "1").strip()
+    except (EOFError, KeyboardInterrupt):
+        # isatty() said interactive, but the read still hit end-of-input —
+        # a pty with nothing on stdin, which is how CI and agent shells run
+        # this. The config was already written, so an uncaught EOFError left
+        # a config behind AND exited non-zero: the install looked failed but
+        # was half-done, and re-running hit "config already exists".
+        print(f"\n  No answer read — kept {root}.", file=sys.stderr)
+        print(f"  Set [[roots]] in {cfg_path} to the folder you want indexed.",
+              file=sys.stderr)
+        return
 
     chosen = None
     if got.lower() in ("k", "keep"):
@@ -605,7 +616,32 @@ def cmd_mark_dirty(args) -> int:
     return 0
 
 
+def _survive_legacy_console() -> None:
+    """Never let a filename crash the command that reports it.
+
+    Windows' default ANSI codepage is still 1252 outside the console, so a
+    redirected `shelfmark stats > out.txt` encodes with cp1252 and raises
+    UnicodeEncodeError on the first character the codepage lacks. One file is
+    enough: a name stored decomposed (NFD) carries U+0301 COMBINING ACUTE
+    ACCENT, which cp1252 cannot represent even though the precomposed "á"
+    can. The traceback replaced the whole report.
+
+    Only the error handler is changed, never the encoding. Re-encoding the
+    stream as UTF-8 would hand mojibake to a consumer that asked for cp1252;
+    backslashreplace keeps the output readable, keeps it honest about what it
+    could not encode, and loses nothing a reader needs. Paths are NOT
+    normalised to NFC anywhere: the catalogue key has to reopen the file, and
+    on NTFS the name is whatever bytes created it.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError, OSError):
+            pass                      # not a reconfigurable text stream
+
+
 def main(argv=None) -> None:
+    _survive_legacy_console()
     ap = argparse.ArgumentParser(
         prog="shelfmark",
         description="Local, privacy-first document catalogue + MCP server.")
