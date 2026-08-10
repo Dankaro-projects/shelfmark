@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.2 — 2026-08-10
 
 ### Fixed
 - **Windows: cloud-residency detection now works.** `is_evicted` read
