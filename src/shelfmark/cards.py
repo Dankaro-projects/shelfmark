@@ -150,7 +150,7 @@ def parse_existing(path: Path):
         return {}
     answers = {}
     current = None
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         h = re.match(r"^##\s+`?([^`]+?)`?\s*$", line)
         if h and not line.startswith("###"):
             current = h.group(1).strip()
@@ -255,7 +255,7 @@ def write(cfg: Config, out_path: Path | None = None) -> str:
                     doc.append(f"**{q}:** {v}")
             doc.append("")
 
-    dest.write_text("\n".join(doc) + "\n")
+    dest.write_text("\n".join(doc) + "\n", encoding="utf-8")
     out = [f"wrote {dest}",
            f"  {len(ordered)} cards "
            f"({sum(a['n'] for a in qualifying.values()):,} files, "

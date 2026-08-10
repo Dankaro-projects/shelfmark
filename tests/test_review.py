@@ -204,11 +204,13 @@ def test_comments_survive(cfg):
     from shelfmark.cli import CONFIG_TEMPLATE
     # The template hardcodes the REAL default db path; a test that leaves it
     # alone writes the synthetic corpus into the operator's own catalogue.
+    from conftest import toml_str
     cfg.source.write_text(
         CONFIG_TEMPLATE
-        .replace('path = "~/Documents"', f'path = "{cfg.primary_root.path}"')
+        .replace('path = "~/Documents"',
+                 f'path = {toml_str(cfg.primary_root.path)}')
         .replace('db = "~/.local/share/shelfmark/catalog.db"',
-                 f'db = "{cfg.db}"'))
+                 f'db = {toml_str(cfg.db)}'))
     from shelfmark import config as cm, refresh
     c = cm.load(cfg.source)
     refresh.run(c)

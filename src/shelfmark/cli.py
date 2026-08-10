@@ -198,10 +198,13 @@ def _set_primary_root(cfg_path, chosen) -> str:
         display = "~/" + chosen.relative_to(home).as_posix()
     except ValueError:
         display = str(chosen)
-    text = cfg_path.read_text()
+    # utf-8 on both sides: config.load reads utf-8, and the locale default
+    # this replaces is cp1252 on Windows -- a config written one way and
+    # read the other garbles any non-ASCII folder name.
+    text = cfg_path.read_text(encoding="utf-8")
     cfg_path.write_text(
         text.replace('path = "~/Documents"', f"path = {json.dumps(display)}",
-                     1))
+                     1), encoding="utf-8")
     return display
 
 
@@ -300,7 +303,7 @@ def cmd_init(args) -> int:
         print(f"Config already exists at {path} (use --force to overwrite).")
         return 1
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(CONFIG_TEMPLATE)
+    path.write_text(CONFIG_TEMPLATE, encoding="utf-8")
     print(f"Wrote {path}")
     _probe_written_root(path)
     print()

@@ -7,6 +7,7 @@ out of a root, and a catalogue placed inside a root indexed itself.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import textwrap
 
@@ -14,16 +15,16 @@ import pytest
 
 from shelfmark import config as cm
 from shelfmark.config import ConfigError
-from conftest import one, rows
+from conftest import one, rows, symlink_or_skip, toml_str
 
 
 def write_config(path, db, roots):
-    body = f'[index]\ndb = "{db}"\n'
+    body = f'[index]\ndb = {toml_str(db)}\n'
     for label, p in roots:
         body += "\n[[roots]]\n"
         if label:
             body += f'label = "{label}"\n'
-        body += f'path = "{p}"\n'
+        body += f'path = {toml_str(p)}\n'
     path.write_text(body)
     return path
 
@@ -40,9 +41,9 @@ def linked(tmp_path):
     (outside / "secret.md").write_text("outside the root, and private\n")
     (outside / "deep").mkdir()
     (outside / "deep" / "buried.md").write_text("deeper still\n")
-    (corpus / "link_file.md").symlink_to(outside / "secret.md")
-    (corpus / "link_dir").symlink_to(outside / "deep")
-    (corpus / "sub" / "nested_link.md").symlink_to(outside / "secret.md")
+    symlink_or_skip(corpus / "link_file.md", outside / "secret.md")
+    symlink_or_skip(corpus / "link_dir", outside / "deep")
+    symlink_or_skip(corpus / "sub" / "nested_link.md", outside / "secret.md")
     cfg = cm.load(write_config(tmp_path / "c.toml", tmp_path / "cat.db",
                                [("", corpus)]))
     return cfg, outside
@@ -86,6 +87,27 @@ def test_the_skip_is_reported_not_silent(linked, capsys):
     capsys.readouterr()
     refresh.run(cfg)
     assert "symlink" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are a Windows construct")
+def test_a_junction_directory_is_not_descended(tmp_path):
+    """The Windows twin of the symlinked-directory test. A junction is not a
+    symlink — os.path.islink says False, so walk's followlinks refusal never
+    fires — but it leaves the root exactly the same way. Unlike symlinks,
+    creating one needs no privilege, which makes it the escape an ordinary
+    Windows account can actually plant."""
+    import _winapi
+    from shelfmark import refresh
+    corpus, outside = tmp_path / "corpus", tmp_path / "outside"
+    corpus.mkdir(); outside.mkdir()
+    (corpus / "real.md").write_text("in the root\n")
+    (outside / "secret.md").write_text("outside the root\n")
+    _winapi.CreateJunction(str(outside), str(corpus / "junc"))
+    cfg = cm.load(write_config(tmp_path / "c.toml", tmp_path / "cat.db",
+                               [("", corpus)]))
+    assert refresh.run(cfg) == 0
+    paths = [p for (p,) in rows(cfg, "SELECT path FROM files")]
+    assert paths == ["real.md"]
 
 
 def test_a_tree_you_mean_to_index_is_an_extra_root(tmp_path):
@@ -141,7 +163,7 @@ def test_a_dotdot_path_cannot_smuggle_the_catalogue_in(tmp_path):
 
 def test_a_symlinked_root_cannot_smuggle_the_catalogue_in(tmp_path):
     real = tmp_path / "real"; real.mkdir()
-    link = tmp_path / "link"; link.symlink_to(real)
+    link = tmp_path / "link"; symlink_or_skip(link, real)
     with pytest.raises(ConfigError, match="INSIDE"):
         cm.load(write_config(tmp_path / "c.toml", real / "cat.db",
                              [("", link)]))

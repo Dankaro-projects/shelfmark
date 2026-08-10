@@ -24,11 +24,12 @@ def test_own_confidential_nests_inside_own(tmp_path, monkeypatch):
     never-leaves subtree out of an otherwise shareable one. Reordering the
     checks in _derive_explained must fail here."""
     from shelfmark import config as config_mod
+    from conftest import toml_str
     f = tmp_path / "c.toml"
     root = tmp_path / "r"
     root.mkdir()
-    f.write_text(f'[index]\ndb = "{tmp_path / "c.db"}"\n\n'
-                 f'[[roots]]\npath = "{root}"\n\n'
+    f.write_text(f'[index]\ndb = {toml_str(tmp_path / "c.db")}\n\n'
+                 f'[[roots]]\npath = {toml_str(root)}\n\n'
                  f'[rights]\nown_prefixes = ["Decks"]\n'
                  f'own_confidential_prefixes = ["Decks/Invoices"]\n')
     c = config_mod.load(f)

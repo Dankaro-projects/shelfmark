@@ -8,12 +8,33 @@ exercises exactly the surface the product uses.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import textwrap
 import zipfile
 from pathlib import Path
 
 import pytest
+
+
+def toml_str(p) -> str:
+    """A TOML basic-string literal for a path, quotes included.
+
+    f'path = "{p}"' breaks on Windows: str(p) interpolates backslashes into
+    a basic string, where \\U opens a unicode escape and tomllib refuses the
+    file. json.dumps escaping is valid TOML basic-string escaping — the same
+    trick cli.py uses when it rewrites the shipped config."""
+    return json.dumps(str(p))
+
+
+def symlink_or_skip(link: Path, target) -> None:
+    """Create link -> target, or skip where symlinks need privileges
+    (Windows without Developer Mode). The junction test in test_boundary is
+    what covers the boundary on machines that land in the skip."""
+    try:
+        link.symlink_to(target)
+    except OSError as exc:
+        pytest.skip(f"cannot create symlinks here: {exc}")
 
 APP_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
@@ -68,6 +89,9 @@ def _never_touch_the_real_catalogue(tmp_path, monkeypatch):
     """
     monkeypatch.setenv("SHELFMARK_CONFIG", str(tmp_path / "config.toml"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    # Windows expanduser ignores HOME (it reads USERPROFILE), so without
+    # this the sandbox holds on two platforms and leaks on the third.
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     (tmp_path / "home").mkdir(exist_ok=True)
 
 
@@ -144,14 +168,14 @@ def config_path(tmp_path: Path, corpus: Path, extra_root: Path) -> Path:
     cfg = tmp_path / "config.toml"
     cfg.write_text(textwrap.dedent(f"""
         [index]
-        db = "{tmp_path / 'catalog.db'}"
+        db = {toml_str(tmp_path / 'catalog.db')}
 
         [[roots]]
-        path = "{corpus}"
+        path = {toml_str(corpus)}
 
         [[roots]]
         label = "extra"
-        path = "{extra_root}"
+        path = {toml_str(extra_root)}
 
         [authors]
         own = ['^A Person$']

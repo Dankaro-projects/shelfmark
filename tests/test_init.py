@@ -152,7 +152,8 @@ def test_init_does_not_follow_symlinks_out_of_the_probe(tmp_path, home,
     (outside / "secret.docx").write_text("x")
     docs = home / "Documents"
     docs.mkdir()
-    (docs / "link").symlink_to(outside)
+    from conftest import symlink_or_skip
+    symlink_or_skip(docs / "link", outside)
     rc, out, err = run_init(tmp_path, capsys)
     # the only documents are behind the symlink, so the probe sees none
     assert "holds no document files" in err

@@ -168,9 +168,10 @@ def test_unreadable_root_guidance_matches_the_platform(srv, built,
 def _solo_config(tmp_path, root):
     """A config whose only root is `root`, loaded for real."""
     from shelfmark import config as config_mod
+    from conftest import toml_str
     f = tmp_path / "solo.toml"
-    f.write_text(f'[index]\ndb = "{tmp_path / "solo.db"}"\n\n'
-                 f'[[roots]]\npath = "{root}"\n')
+    f.write_text(f'[index]\ndb = {toml_str(tmp_path / "solo.db")}\n\n'
+                 f'[[roots]]\npath = {toml_str(root)}\n')
     return config_mod.load(f)
 
 

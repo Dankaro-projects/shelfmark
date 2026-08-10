@@ -14,8 +14,10 @@ jobs:
       matrix:
         # The supported platforms, and both ends of the supported Python
         # range -- the floor is what requires-python promises, and it is the
-        # one nobody develops on.
-        os: [ubuntu-latest, macos-latest]
+        # one nobody develops on. The windows entry IS the Windows support
+        # claim: nobody here develops on it, so a platform not in this list
+        # is a platform the README must not name.
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4

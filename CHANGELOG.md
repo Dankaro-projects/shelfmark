@@ -2,6 +2,41 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+### Fixed
+- **Windows: cloud-residency detection now works.** `is_evicted` read
+  `st_blocks`, which does not exist on Windows, so every OneDrive
+  placeholder read as materialised — and got hashed, yielding the
+  empty-string digest guard at best and ghost duplicates at worst. It now
+  checks the Win32 recall attributes (`OFFLINE`, `RECALL_ON_OPEN`,
+  `RECALL_ON_DATA_ACCESS`) first, which are authoritative there; POSIX
+  block-count behaviour is unchanged. One function now serves the builder,
+  the server's `get_file` residency line, and the standalone probe — the
+  three previously separate copies could drift.
+- **Windows: the refresh lock no longer kills what it checks.** The
+  stale-lock probe was `os.kill(pid, 0)` — a probe on POSIX, but on
+  Windows any signal outside the two console events calls
+  `TerminateProcess`: a second refresh would have terminated a live one
+  mid-prune and then reported it running. Windows now asks via
+  `OpenProcess`, which only asks.
+- **Windows: directory junctions are refused by the walk.** A junction
+  crosses the root boundary exactly like a symlink but is not one
+  (`os.path.islink` says False on 3.12+, so the walk descended it) — and
+  unlike symlinks, creating one needs no privilege. Junction directories
+  are now pruned before descent and reported in the skipped-links count.
+- **Text files are read and written as UTF-8 everywhere.** Config, status,
+  MAP.md, cards and the pid file relied on the locale encoding, which on
+  Windows is cp1252 — `shelfmark init` would write a config that
+  `config.load` (already UTF-8) could garble on the first non-ASCII folder
+  name, and MAP.md/cards crashed outright on characters outside Latin-1.
+
+### Added
+- CI now runs the suite on `windows-latest` alongside macOS and Linux, at
+  both ends of the Python range. The matrix entry is the support claim —
+  the residency, lock and junction behaviours above are tested with
+  platform stand-ins on every leg, and natively on the Windows one.
+
 ## 0.4.1 — 2026-08-09
 
 ### Fixed

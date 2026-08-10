@@ -35,6 +35,7 @@ with warnings.catch_warnings():
     from mcp.server.fastmcp import FastMCP
 
 from . import config as config_mod
+from .catalog import is_evicted
 from .config import Config
 
 with warnings.catch_warnings():
@@ -165,7 +166,7 @@ def index_warning() -> str | None:
         return ("⚠ this catalogue has never been refreshed — results are "
                 "empty or stale. Run `shelfmark refresh`.")
     try:
-        st = json.loads(status_path.read_text())
+        st = json.loads(status_path.read_text(encoding="utf-8"))
         if st.get("state") != "ok":
             return (f"⚠ the last refresh FAILED ({st.get('detail', '?')}) — "
                     f"answers below come from the previous snapshot.")
@@ -698,9 +699,7 @@ def get_file(path: str) -> str:
     try:
         st = disk.stat()
         on_disk = "yes"
-        blocks = getattr(st, "st_blocks", None)
-        materialised = not (blocks == 0 and st.st_size > 0) \
-            if blocks is not None else True
+        materialised = not is_evicted(st)
     except OSError:
         on_disk = "no"
         materialised = None
@@ -818,7 +817,7 @@ def freshness_line(con) -> str:
                                 "has never run")
     else:
         try:
-            st = json.loads(status_path.read_text())
+            st = json.loads(status_path.read_text(encoding="utf-8"))
             ts = datetime.strptime(st["finished_utc"], "%Y-%m-%dT%H:%M:%SZ") \
                          .replace(tzinfo=timezone.utc)
             # Clamped: a skewed clock must not produce "-34 min ago".

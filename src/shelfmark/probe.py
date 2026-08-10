@@ -130,12 +130,50 @@ def parse_core(z):
     return meta
 
 
+# Cloud residency. A dataless placeholder satisfies stat's size and mtime
+# like a real file; only allocation (POSIX) or the recall attributes
+# (Windows) reveal it. This is the single authority -- catalog.py re-exports
+# it, and every other caller imports it from there. It lives here because
+# probe is the lowest module in the import graph and must stay runnable as
+# a standalone script.
+#
+# macOS: iCloud marks the file itself dataless -- st_blocks drops to 0 while
+# st_size stays. Do NOT test for '.icloud' stub files; modern macOS does not
+# create them, and an empty stub search reads as 'everything is
+# materialised' when it is not.
+#
+# Windows: st_blocks does not exist, so the old check silently returned
+# False and OneDrive eviction was invisible. Cloud filter drivers mark
+# placeholders with recall attributes instead. The stat module does not name
+# the recall bits, so the ABI-stable Win32 values are spelled here.
+_WIN_DATALESS = (
+    0x00001000        # FILE_ATTRIBUTE_OFFLINE (HSM / cloud-evicted)
+    | 0x00040000      # FILE_ATTRIBUTE_RECALL_ON_OPEN
+    | 0x00400000      # FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS
+)
+
+
+def is_evicted(st) -> bool:
+    """True when the file is a dataless cloud placeholder.
+
+    st_file_attributes is checked first: on Windows it always exists and is
+    authoritative (an NTFS sparse file can carry zero allocated blocks while
+    fully local, so a block test there would lie in both directions). On
+    filesystems reporting neither attributes nor block counts this returns
+    False."""
+    attrs = getattr(st, "st_file_attributes", None)
+    if attrs is not None:
+        return bool(attrs & _WIN_DATALESS)
+    blocks = getattr(st, "st_blocks", None)
+    return blocks == 0 and st.st_size > 0 if blocks is not None else False
+
+
 def probe(path):
     rec = {'path': path}
     st = os.stat(path)
     rec['bytes'] = st.st_size
-    if getattr(st, "st_blocks", None) == 0 and st.st_size > 0:
-        rec['error'] = 'evicted-icloud'
+    if is_evicted(st):
+        rec['error'] = 'evicted-cloud'
         return rec
     try:
         with zipfile.ZipFile(path) as z:

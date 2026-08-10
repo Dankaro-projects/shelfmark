@@ -24,7 +24,11 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePath
 
 from .config import Config, has_prefix
-from .probe import parse_app, parse_core
+# is_evicted is re-exported: emails.py and the tests reach it as
+# catalog.is_evicted, and ingest() resolves it through this module's
+# namespace so a monkeypatch here still lands. The definition lives in
+# probe.py -- see the note there.
+from .probe import is_evicted, parse_app, parse_core
 from .rules import (DATE_IN_NAME_RE, FORMAT_WINS_EXT, FORMAT_WINS_NAME,
                     OOXML_EXT, VERSION_RE)
 from .rules import DEFAULT_SKIP_PREFIXES as SKIP_PREFIXES
@@ -162,16 +166,22 @@ def rel_key(p: PurePath, base: PurePath, label: str = "") -> str:
     return f"{label}/{rel}" if label else rel
 
 
-def is_evicted(st: os.stat_result) -> bool:
-    """True when the file is a dataless cloud placeholder.
-
-    On macOS, iCloud marks the file itself dataless (SF_DATALESS in st_flags;
-    st_blocks drops to 0 while st_size stays). Do NOT test for '.icloud' stub
-    files — modern macOS does not create them, and an empty stub search reads
-    as 'everything is materialised' when it is not. On filesystems without
-    block counts this returns False."""
-    blocks = getattr(st, "st_blocks", None)
-    return blocks == 0 and st.st_size > 0 if blocks is not None else False
+def _is_junction(path: str) -> bool:
+    """Windows directory junctions cross the trust boundary exactly like
+    symlinks but are not symlinks: os.path.islink answers False for them on
+    3.12+, so os.walk descends them. Nothing on POSIX ever is one, which is
+    what makes the early return safe — and free."""
+    if os.name != "nt":
+        return False
+    isjunction = getattr(os.path, "isjunction", None)     # 3.12+
+    if isjunction is not None:
+        return isjunction(path)
+    try:
+        st = os.lstat(path)                               # 3.11 fallback
+    except OSError:
+        return False
+    # IO_REPARSE_TAG_MOUNT_POINT — the stat module only names it on Windows
+    return getattr(st, "st_reparse_tag", 0) == 0xA0000003
 
 
 def sha256_of(path: Path, st: os.stat_result) -> str | None:
@@ -279,8 +289,19 @@ def walk(cfg: Config, stats: dict | None = None):
         # followlinks defaults to False, which is what declines to descend a
         # symlinked directory. test_a_symlinked_directory_is_not_descended
         # guards the behaviour, so it survives anyone changing the mechanism.
+        # Junctions are the Windows way to plant the same escape, and walk's
+        # symlink refusal does not cover them — prune them here, counted with
+        # the symlinks so the skip is reported, not silent.
         for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames if d not in cfg.skip_dirs]
+            keep = []
+            for d in dirnames:
+                if d in cfg.skip_dirs:
+                    continue
+                if _is_junction(os.path.join(dirpath, d)):
+                    seen_links += 1
+                    continue
+                keep.append(d)
+            dirnames[:] = keep
             for fn in filenames:
                 if fn in cfg.skip_names or fn.startswith(SKIP_PREFIXES):
                     continue

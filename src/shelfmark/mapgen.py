@@ -189,5 +189,5 @@ def write(cfg: Config, out_path: Path | None = None,
     if to_stdout:
         return text
     dest = out_path or cfg.db.parent / "MAP.md"
-    dest.write_text(text)
+    dest.write_text(text, encoding="utf-8")
     return f"wrote {dest} ({len(text):,} chars)"

@@ -45,6 +45,25 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _win_pid_running(pid: int) -> tuple[bool, bool]:
+    """(running, another_user) — asked via OpenProcess, which only asks.
+
+    The POSIX probe is os.kill(pid, 0), and on Windows that call is NOT a
+    probe: any signal number outside the two console events goes straight to
+    TerminateProcess, so 'checking' the lock holder would kill a live
+    refresh mid-prune and then report it running. ACCESS_DENIED maps to the
+    POSIX PermissionError case — the process exists, it just is not ours."""
+    import ctypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    ERROR_ACCESS_DENIED = 5
+    handle = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if handle:
+        k32.CloseHandle(handle)
+        return True, False
+    return ctypes.get_last_error() == ERROR_ACCESS_DENIED, True
+
+
 class _Log:
     def __init__(self, path: Path):
         self.path = path
@@ -65,7 +84,7 @@ def _write_status(cfg: Config, state: str, detail: str,
         "finished_utc": _now_utc(),
         "files": files,
         "added": added,
-    }, indent=2) + "\n")
+    }, indent=2) + "\n", encoding="utf-8")
 
 
 def _tell(msg: str) -> None:
@@ -107,7 +126,7 @@ class _Lock:
             except OSError:
                 self.log.say("cannot lock")
                 return False
-        (self.dir / "pid").write_text(str(os.getpid()))
+        (self.dir / "pid").write_text(str(os.getpid()), encoding="utf-8")
         self.held = True
         return True
 
@@ -120,9 +139,17 @@ class _Lock:
         live lock, and two refreshes pruning against different run
         timestamps is the wrong-prune this module guards against."""
         try:
-            pid = int(pid_file.read_text())
+            pid = int(pid_file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return False
+        if sys.platform == "win32":
+            # os.kill(pid, 0) TERMINATES on Windows -- see _win_pid_running.
+            running, other = _win_pid_running(pid)
+            if running:
+                self.log.say(
+                    f"lock held by pid {pid} (another user) -- exiting"
+                    if other else f"already running (pid {pid}) -- exiting")
+            return running
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
