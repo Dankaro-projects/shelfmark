@@ -2,6 +2,28 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+### Added
+- **The status file now carries the failure streak.** A failure that has
+  repeated 113 times is not the same event as one that just happened, and
+  overwriting REFRESH_STATUS.json each run erased the difference — run
+  113 read identically to run 1. Any non-ok run (failed or degraded) now
+  records `failing_since` and `consecutive_failures`, carried forward
+  until a clean run clears them by omission; absent keys mean "no streak
+  recorded", so files written by older versions stay readable. Every
+  delivery surface renders it — corpus_stats, the per-tool warning
+  prefix, and the hook — as "N consecutive runs since T", and only from
+  the second run: "1 consecutive run" is noise wearing the costume of
+  information.
+- A regression test pins the four-day field failure end to end: subset
+  rename → run 2 degraded (prune refused) → later runs failed (coverage
+  floor, inflated by the refused rows) → one streak, one start time — and
+  pins that the log's FAIL line never again asserts "root unreadable" as
+  the cause (the 0.2.0 sentence lived in the banner AND the log; the
+  banner fix shipped in 0.4.4, the log had dropped it earlier, and both
+  are now held dead by tests).
+
 ## 0.4.4 — 2026-08-10
 
 The theme: the trust signal was the least finished surface in the product.

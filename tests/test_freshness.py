@@ -329,3 +329,28 @@ def test_a_degraded_catalogue_prefixes_every_tool(srv, built):
     assert out.startswith("⚠")
     assert "DEGRADED" in out
     assert "FAILED" not in out
+
+
+# ---------------------------------------------------------------- the streak
+
+def test_a_streak_is_rendered_not_just_counted(srv, built, monkeypatch):
+    """"Failing since 5 Aug, 113 consecutive runs" is the difference
+    between a warning someone skims and one someone acts on — the fields
+    are worthless if no delivery surface says them."""
+    set_status(built, state="failed", detail="walk saw 3/92 files",
+               consecutive_failures=113,
+               failing_since="2026-08-05T15:55:56Z")
+    warn = srv.index_warning()
+    assert "113 consecutive runs" in warn
+    assert "2026-08-05" in warn
+    monkeypatch.setattr(srv, "disk_drift",
+                        lambda con: {"state": "ok", "new": 0, "modified": 0,
+                                     "deleted": 0})
+    assert "113 consecutive runs" in srv.corpus_stats()
+
+
+def test_a_first_failure_is_not_a_streak(srv, built):
+    """"1 consecutive run" is noise wearing the costume of information."""
+    set_status(built, state="failed", detail="x", consecutive_failures=1,
+               failing_since="2026-08-10T00:00:00Z")
+    assert "consecutive" not in srv.index_warning()

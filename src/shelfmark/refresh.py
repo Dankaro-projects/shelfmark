@@ -75,16 +75,43 @@ class _Log:
             fh.write(f"{stamp}  {msg}\n")
 
 
+def _read_status(cfg: Config) -> dict | None:
+    try:
+        return json.loads(cfg.status_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def _write_status(cfg: Config, state: str, detail: str,
                   files: int = 0, added: int = 0) -> None:
     cfg.status_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg.status_path.write_text(json.dumps({
+    st = {
         "state": state,
         "detail": detail,
         "finished_utc": _now_utc(),
         "files": files,
         "added": added,
-    }, indent=2) + "\n", encoding="utf-8")
+    }
+    # A failure that has repeated 113 times is not the same event as one
+    # that just happened — and overwriting the file each run erased the
+    # difference, so run 113 read identically to run 1. Carry the streak
+    # forward for any non-ok state (failed and degraded alike: the
+    # condition is what persists, whichever guard reports it this run).
+    # Absent keys mean "no streak recorded", so status files written by
+    # older versions stay readable and an ok run clears it by omission.
+    if state != "ok":
+        prev = _read_status(cfg) or {}
+        if prev.get("state", "ok") != "ok":
+            st["failing_since"] = (prev.get("failing_since")
+                                   or prev.get("finished_utc")
+                                   or st["finished_utc"])
+            st["consecutive_failures"] = \
+                int(prev.get("consecutive_failures") or 1) + 1
+        else:
+            st["failing_since"] = st["finished_utc"]
+            st["consecutive_failures"] = 1
+    cfg.status_path.write_text(json.dumps(st, indent=2) + "\n",
+                               encoding="utf-8")
 
 
 def _tell(msg: str) -> None:

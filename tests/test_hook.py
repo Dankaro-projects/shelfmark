@@ -79,3 +79,19 @@ def test_a_broken_config_cannot_break_the_session(tmp_path, capsys, monkeypatch)
     assert exc.value.code == 0
     payload = json.loads(out)
     assert "cannot load config" in payload["systemMessage"]
+
+
+def test_stop_reports_the_streak(built, capsys):
+    """By the second bad run the hook's one line must already say this is
+    not the first — escalation by duration, not repetition."""
+    import shutil
+    from shelfmark import refresh
+    root = built.primary_root.path
+    shutil.move(str(root / "Decks"), str(root / "Archive"))
+    assert refresh.run(built) == 0                # streak run 1 (degraded)
+    built.dirty_marker.write_text("")             # make --if-needed run again
+
+    code, out, _ = run_hook(built, "stop", capsys)
+    assert code == 0
+    payload = json.loads(out)
+    assert "2 consecutive runs" in payload["systemMessage"]

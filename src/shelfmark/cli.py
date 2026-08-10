@@ -551,8 +551,12 @@ def cmd_hook(args) -> int:
         except (OSError, json.JSONDecodeError):
             return 0
         if st.get("state") != "ok":
+            n = int(st.get("consecutive_failures") or 0)
+            streak = (f" ({n} consecutive runs since "
+                      f"{st.get('failing_since', '?')})" if n >= 2 else "")
             say({"systemMessage":
-                 f"shelfmark: {st.get('state')} — {st.get('detail', '?')}"})
+                 f"shelfmark: {st.get('state')} — "
+                 f"{st.get('detail', '?')}{streak}"})
         return 0
 
     if not cfg.db.exists():

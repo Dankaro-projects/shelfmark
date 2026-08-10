@@ -192,3 +192,60 @@ def test_a_refused_prune_leaves_degraded_and_repeats(built):
         status = json.loads(built.status_path.read_text())
         assert status["state"] == "degraded", f"run {attempt}"
         assert "REFUSED" in status["detail"], f"run {attempt}"
+
+
+def test_a_persistent_failure_reports_its_streak(built):
+    """The field shape that cost four days, pinned end to end: a subset
+    rename degrades run 2 (prune refused), the refused rows inflate the
+    catalogue, and every later run fails the coverage floor. Run 113 must
+    not read like run 1 — the status carries how long this has been true,
+    with ONE start time for the whole streak."""
+    import shutil
+    from shelfmark import refresh
+    root = built.primary_root.path
+    shutil.move(str(root / "Clients" / "Alpha"),
+                str(root / "Clients" / "Omega"))
+
+    assert refresh.run(built) == 0
+    st = json.loads(built.status_path.read_text())
+    assert st["state"] == "degraded"
+    assert st["consecutive_failures"] == 1
+
+    # Backdate the streak start before continuing: at test speed all five
+    # runs share one second, so "preserved" and "recomputed" would be the
+    # same string and the assertion below could never fail. The carry must
+    # keep the start VERBATIM, which a backdated sentinel can prove.
+    since = "2026-08-05T15:55:56Z"
+    st["failing_since"] = since
+    built.status_path.write_text(json.dumps(st))
+
+    for expected_n in (2, 3, 4):
+        assert refresh.run(built) == 1
+        st = json.loads(built.status_path.read_text())
+        assert st["state"] == "failed"
+        assert st["consecutive_failures"] == expected_n
+        assert st["failing_since"] == since
+
+    # The 0.2.0 log asserted "-- root unreadable" as fact, one layer below
+    # the banner that said the same — the sentence that took four days to
+    # stop being believed lived in two places. Pin both dead: the log line
+    # carries the numbers, the status detail names every cause.
+    log = built.log_path.read_text()
+    assert "FAIL: walk saw only" in log
+    assert "root unreadable" not in log
+    assert "unreadable" in st["detail"] and "went away" in st["detail"]
+
+
+def test_a_clean_run_ends_the_streak(built):
+    """--force is the designed exit from the freeze; taking it must leave a
+    status with no residue of the streak — absent keys mean no streak."""
+    import shutil
+    from shelfmark import refresh
+    root = built.primary_root.path
+    shutil.move(str(root / "Decks"), str(root / "Archive"))
+    assert refresh.run(built) == 0                 # degraded, streak starts
+    assert refresh.run(built, force=True) == 0     # operator accepts the move
+    st = json.loads(built.status_path.read_text())
+    assert st["state"] == "ok"
+    assert "consecutive_failures" not in st
+    assert "failing_since" not in st

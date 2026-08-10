@@ -177,18 +177,23 @@ def index_warning() -> str | None:
                 "empty or stale. Run `shelfmark refresh`.")
     try:
         st = json.loads(status_path.read_text(encoding="utf-8"))
+        n = int(st.get("consecutive_failures") or 0)
+        streak = (f" — {n} consecutive runs since "
+                  f"{st.get('failing_since', '?')}" if n >= 2 else "")
         if st.get("state") == "degraded":
             # Completed run, full walk — but the prune kept rows it could
             # not vouch for, and they answer queries. Not FAILED: rights
             # were re-applied and the run finished. Repeated on every call
             # until resolved, because news that stops being news is how
             # this once stayed quiet for four days.
-            return (f"⚠ the catalogue is DEGRADED ({st.get('detail', '?')}) — "
-                    f"it still lists files that were gone at the last "
-                    f"refresh. Call corpus_stats() for the disk comparison.")
+            return (f"⚠ the catalogue is DEGRADED ({st.get('detail', '?')}"
+                    f"{streak}) — it still lists files that were gone at the "
+                    f"last refresh. Call corpus_stats() for the disk "
+                    f"comparison.")
         if st.get("state") != "ok":
-            return (f"⚠ the last refresh FAILED ({st.get('detail', '?')}) — "
-                    f"answers below come from the previous snapshot.")
+            return (f"⚠ the last refresh FAILED ({st.get('detail', '?')}"
+                    f"{streak}) — answers below come from the previous "
+                    f"snapshot.")
         ts = datetime.strptime(st["finished_utc"], "%Y-%m-%dT%H:%M:%SZ") \
                      .replace(tzinfo=timezone.utc)
         age_h = (datetime.now(timezone.utc) - ts).total_seconds() / 3600

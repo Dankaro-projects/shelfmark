@@ -107,15 +107,23 @@ def freshness_line(con, cfg: Config, drift=None) -> str:
             ago = (f"{int(age_h * 60)} min ago" if age_h < 1
                    else f"{age_h:.1f} h ago" if age_h < 48
                    else f"{age_h / 24:.1f} days ago")
+            # A failure on its 113th run is different news from a failure
+            # on its 1st, and the reader can only act on that difference
+            # if the line carries it.
+            n = int(st.get("consecutive_failures") or 0)
+            streak = (f" ({n} consecutive runs since "
+                      f"{st.get('failing_since', '?')})" if n >= 2 else "")
             if st.get("state") == "degraded":
                 # The run completed and the walk was full, but the prune
                 # declined to remove rows it could not vouch for — the
                 # catalogue knowingly lists files that are gone. Repeat the
                 # detail until it is resolved: news that stops being news
                 # is how this failure class once stayed quiet for days.
-                suffix = str(st.get("detail", "")).strip() or "catalogue degraded"
+                suffix = (str(st.get("detail", "")).strip()
+                          or "catalogue degraded") + streak
             elif st.get("state") != "ok":
-                failed, suffix = True, f"last refresh FAILED: {st.get('detail', '?')}"
+                failed, suffix = True, (f"last refresh FAILED: "
+                                        f"{st.get('detail', '?')}{streak}")
             elif age_h > cfg.stale_after_hours:
                 failed, suffix = True, (
                     f"last clean refresh {ago} — whatever schedules "
