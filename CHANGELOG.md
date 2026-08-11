@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.6 — 2026-08-11
 
 ### Added
 - **`shelfmark doctor`** — checks the setup for the problems that otherwise
