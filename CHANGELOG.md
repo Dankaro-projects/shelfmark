@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.7 — 2026-08-11
 
 ### Fixed
 - **An unreadable folder now degrades the status instead of reporting
