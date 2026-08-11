@@ -176,3 +176,67 @@ def test_the_subtree_returns_when_it_becomes_readable_again(
             (f"%{DEEP}%",)).fetchone()[0] == 2
     finally:
         con.close()
+
+
+# ----------------------------------------- the status and the drift, honest
+
+def test_an_unreadable_folder_degrades_the_status(
+        corpus_with_subtree, built, blind_to_subtree):
+    """Keeping the rows is half the job; saying so where the repeating
+    surfaces read it is the other half. With state "ok" the stop hook said
+    nothing, no streak accumulated, and only the terminal line — which a
+    hook-run refresh discards — carried the news."""
+    import json
+    for expected_n in (1, 2):
+        assert refresh.run(built) == 0
+        st = json.loads(built.status_path.read_text())
+        assert st["state"] == "degraded"
+        assert "unreadable" in st["detail"]
+        if expected_n > 1:
+            assert st["consecutive_failures"] == expected_n
+
+
+def test_the_drift_names_unreachable_not_deleted(
+        corpus_with_subtree, built, blind_to_subtree):
+    """The walk KNOWS which folders it could not open, and the drift used to
+    discard that knowledge: 10 unreachable files reported as "10 deleted"
+    with "Run `shelfmark refresh`" as the remedy — the one thing that cannot
+    reach them."""
+    import sqlite3
+    from shelfmark import freshness
+    con = sqlite3.connect(built.db)
+    con.row_factory = sqlite3.Row
+    try:
+        line = freshness.freshness_line(con, built)
+    finally:
+        con.close()
+    assert "2 unreachable" in line
+    assert "deleted" not in line
+    assert "cannot reach them" in line
+    # the misleading half of the old remedy must not be the only advice
+    assert "made readable" in line or "skipped in config" in line
+
+
+def test_a_readable_again_folder_returns_to_ok_and_clears_the_streak(
+        corpus_with_subtree, built, monkeypatch):
+    """The degradation must not be sticky: reopen the folder and the next
+    run is a plain ok with no streak residue."""
+    import json
+    import os
+    real = os.scandir
+
+    def failing(path=".", *a, **kw):
+        if DEEP in str(path):
+            raise OSError(3, "The system cannot find the path specified",
+                          str(path))
+        return real(path, *a, **kw)
+
+    monkeypatch.setattr(os, "scandir", failing)
+    assert refresh.run(built) == 0
+    assert json.loads(built.status_path.read_text())["state"] == "degraded"
+
+    monkeypatch.undo()
+    assert refresh.run(built) == 0
+    st = json.loads(built.status_path.read_text())
+    assert st["state"] == "ok"
+    assert "consecutive_failures" not in st

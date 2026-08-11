@@ -216,8 +216,8 @@ def index_warning() -> str | None:
             # until resolved, because news that stops being news is how
             # this once stayed quiet for four days.
             return (f"⚠ the catalogue is DEGRADED ({st.get('detail', '?')}"
-                    f"{streak}) — it still lists files that were gone at the "
-                    f"last refresh. Call corpus_stats() for the disk "
+                    f"{streak}) — it lists rows the last refresh could not "
+                    f"verify on disk. Call corpus_stats() for the disk "
                     f"comparison.")
         if st.get("state") != "ok":
             return (f"⚠ the last refresh FAILED ({st.get('detail', '?')}"

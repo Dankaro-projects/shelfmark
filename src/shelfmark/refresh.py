@@ -290,6 +290,7 @@ def run(cfg: Config, force: bool = False) -> int:
         #   3. refuse if the prune would take more than the configured share
         #      of the catalogue
         prune_note = ""
+        unreadable_news = ""
         prune_news = ""
         run_ts = counts["run_ts"]
         con = sqlite3.connect(cfg.db)
@@ -307,6 +308,9 @@ def run(cfg: Config, force: bool = False) -> int:
                 # incomplete, and a guard that quietly compensates teaches
                 # nothing about the folder it is compensating for.
                 n = counts["unreadable_dirs"]
+                first = (counts.get("unreadable_paths") or ["?"])[0]
+                unreadable_news = (f"{n} folder(s) unreadable ({first}) — "
+                                   f"rows kept, contents unseen this run")
                 log.say(f"{n} unreadable folder(s); their rows kept, "
                         f"the rest pruned normally")
                 for up in counts.get("unreadable_paths", []):
@@ -431,13 +435,20 @@ def run(cfg: Config, force: bool = False) -> int:
         # answers from them. "degraded" keeps that fact in the status file
         # where the server and the hook re-read it EVERY run — a catalogue
         # once carried 19,157 phantom rows for four days because the one
-        # refusal message was easy to miss and nothing repeated it. A
-        # missing EXTRA root stays "ok": a laptop away from its NAS is
-        # normal life, not a degradation — the detail still carries it.
-        state = "degraded" if "REFUSED" in prune_note else "ok"
+        # refusal message was easy to miss and nothing repeated it. An
+        # UNREADABLE folder degrades the run for the same reason: rows the
+        # walk could not verify are answering queries, and with the status
+        # saying "ok" every repeating surface stayed silent (verified: the
+        # stop hook said nothing while the drift line called the unreachable
+        # files "deleted"). A missing EXTRA root stays "ok": a laptop away
+        # from its NAS is normal life, not a degradation — the detail still
+        # carries it.
+        state = ("degraded" if ("REFUSED" in prune_note or unreadable_news)
+                 else "ok")
         log.say(f"{state}: files={after} (net {added}){prune_note} "
                 f"leak=0 secrets=0 fts_gap=0")
-        _write_status(cfg, state, prune_news or "clean", after, added)
+        news = "; ".join(x for x in (unreadable_news, prune_news) if x)
+        _write_status(cfg, state, news or "clean", after, added)
         return 0
     finally:
         lock.release()

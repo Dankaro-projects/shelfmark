@@ -95,3 +95,35 @@ def test_stop_reports_the_streak(built, capsys):
     assert code == 0
     payload = json.loads(out)
     assert "2 consecutive runs" in payload["systemMessage"]
+
+
+def test_stop_reports_an_unreadable_folder(built, capsys, monkeypatch):
+    """The silence this closes, verified before the fix: a refresh that hit
+    an unreadable folder wrote state "ok", so the stop hook said nothing
+    while the index was knowingly incomplete."""
+    import os
+    d = built.primary_root.path / "sealed_room"
+    d.mkdir()
+    (d / "note.md").write_text("x\n")
+    assert refresh_ok(built)                      # catalogue the folder
+
+    real = os.scandir
+
+    def failing(path=".", *a, **kw):
+        if "sealed_room" in str(path):
+            raise OSError(13, "Permission denied", str(path))
+        return real(path, *a, **kw)
+
+    monkeypatch.setattr(os, "scandir", failing)
+    built.dirty_marker.write_text("")
+
+    code, out, _ = run_hook(built, "stop", capsys)
+    assert code == 0
+    payload = json.loads(out)
+    assert "degraded" in payload["systemMessage"]
+    assert "unreadable" in payload["systemMessage"]
+
+
+def refresh_ok(cfg):
+    from shelfmark import refresh
+    return refresh.run(cfg) == 0

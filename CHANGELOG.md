@@ -2,6 +2,26 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+### Fixed
+- **An unreadable folder now degrades the status instead of reporting
+  ok/clean.** 0.4.6 stopped the prune from deleting rows under a folder
+  the walk could not open, but the run still wrote `state: ok` — so the
+  stop hook stayed silent, no streak accumulated, and the only delivery
+  was a terminal line a hook-run refresh discards. Verified before the
+  fix: ten knowingly-unreachable files, an "ok" status, a silent hook.
+  The run now writes `degraded` with the folder named in the detail, and
+  every repeating surface (tool prefixes, corpus_stats, the hook, the
+  streak) carries it until the folder opens again or is skipped in config.
+- **The drift line no longer calls unreachable files "deleted".** The walk
+  counts the folders it cannot open, and disk_drift discarded that
+  knowledge: rows underneath were lumped into the deleted count and the
+  banner prescribed `shelfmark refresh` — the one thing that cannot reach
+  them. Missing rows are now partitioned into deleted and unreachable,
+  each with its own remedy, and "N unreachable (under M folder(s) the walk
+  cannot open)" says what is actually wrong.
+
 ## 0.4.6 — 2026-08-11
 
 ### Added

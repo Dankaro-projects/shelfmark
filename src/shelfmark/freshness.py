@@ -37,7 +37,8 @@ def disk_drift(con, cfg: Config) -> dict:
         known = {r["path"]: (r["bytes"], r["mtime"])
                  for r in con.execute("SELECT path, bytes, mtime FROM files")}
         seen, on_disk, new, modified = 0, set(), 0, 0
-        for p, rel in walk(cfg):
+        walk_stats: dict = {}
+        for p, rel in walk(cfg, stats=walk_stats):
             try:
                 st = p.stat()
             except OSError:
@@ -73,8 +74,21 @@ def disk_drift(con, cfg: Config) -> dict:
     if known and seen < len(known) * 0.8:
         return {"state": "unreadable", "seen": seen, "rows": len(known)}
 
+    # A row the walk did not see has two very different explanations, and
+    # the walk KNOWS which applies: it counted the folders it could not
+    # open. A row under one of them is unreachable, not deleted — lumping
+    # them together once had this line reporting 10 unreachable files as
+    # "10 deleted" and prescribing a refresh, which is the one thing that
+    # cannot reach them.
+    missing = known.keys() - on_disk
+    keys = walk_stats.get("unreadable_keys", [])
+    unreachable = sum(1 for rel in missing
+                      if any(k == "" or rel == k or rel.startswith(k + "/")
+                             for k in keys)) if keys else 0
     return {"state": "ok", "new": new, "modified": modified,
-            "deleted": len(known) - len(on_disk & known.keys())}
+            "deleted": len(missing) - unreachable,
+            "unreachable": unreachable,
+            "unreadable_dirs": walk_stats.get("unreadable_dirs", 0)}
 
 
 def freshness_line(con, cfg: Config, drift=None) -> str:
@@ -188,11 +202,24 @@ def freshness_line(con, cfg: Config, drift=None) -> str:
         return f"{head} — {d['why']}. {suffix}".strip()
 
     behind = [f"{d[k]} {k}" for k in ("new", "modified", "deleted") if d[k]]
+    unreachable = d.get("unreachable", 0)
+    if unreachable:
+        behind.append(f"{unreachable} unreachable (under "
+                      f"{d.get('unreadable_dirs', '?')} folder(s) the walk "
+                      f"cannot open)")
 
     if behind:
-        return (f"⚠ INDEX BEHIND DISK — {', '.join(behind)} vs the catalogue "
-                f"(last refresh {ago}). Run `shelfmark refresh`."
-                + (f" [{suffix}]" if suffix else ""))
+        # Each cause gets ITS remedy: a refresh heals new/modified/deleted,
+        # and is precisely what cannot heal an unreachable folder — telling
+        # the operator to re-run it is the wrong-cause mistake again.
+        line = (f"⚠ INDEX BEHIND DISK — {', '.join(behind)} vs the catalogue "
+                f"(last refresh {ago}).")
+        if any(d.get(k) for k in ("new", "modified", "deleted")):
+            line += " Run `shelfmark refresh`."
+        if unreachable:
+            line += (" Unreachable files need the folder made readable, or "
+                     "skipped in config — a refresh cannot reach them.")
+        return line + (f" [{suffix}]" if suffix else "")
 
     if failed:
         return (f"⚠ index matches disk, but {suffix}. Rights and "
