@@ -243,8 +243,16 @@ def test_a_lock_held_by_another_user_is_not_stolen(cfg, monkeypatch):
 
 
 def test_a_lock_from_a_dead_process_is_reclaimed(cfg, monkeypatch):
-    """The mirror: a crashed run must not block indexing forever."""
+    """The mirror: a crashed run must not block indexing forever.
+
+    The dead process is faked at the seam each platform actually probes.
+    Leaving Windows to run the REAL OpenProcess against the made-up pid
+    looked like free coverage and was a coin flip instead: Windows pids
+    are dense, reused, and matched with the low bits masked, so "4242" can
+    name a live process — one CI runner did exactly that, the lock read
+    as held, and the refresh politely declined to run."""
     import os
+    import sys
     from shelfmark import refresh
     refresh.run(cfg)
     before = one(cfg, "SELECT COUNT(*) FROM files")
@@ -252,7 +260,11 @@ def test_a_lock_from_a_dead_process_is_reclaimed(cfg, monkeypatch):
     def gone(pid, sig):
         raise ProcessLookupError("No such process")
 
-    monkeypatch.setattr(os, "kill", gone)
+    if sys.platform == "win32":
+        monkeypatch.setattr(refresh, "_win_pid_running",
+                            lambda pid: (False, False))
+    else:
+        monkeypatch.setattr(os, "kill", gone)
     cfg.lock_dir.mkdir(parents=True, exist_ok=True)
     (cfg.lock_dir / "pid").write_text("4242")
     (cfg.primary_root.path / "Clients" / "Alpha" / "arrived.md").write_text("x\n")
