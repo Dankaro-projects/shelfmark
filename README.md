@@ -376,8 +376,46 @@ cloud-evicted and what that costs you, and any email format sitting in the
 catalogue with no reader installed.
 
 It names the fix rather than the fault, prints the evidence behind each
-guess so you can overrule it, takes no flags, and exits non-zero on
-anything fatal so it can gate a setup script.
+guess so you can overrule it, and exits non-zero on anything fatal so it
+can gate a setup script.
+
+No flag changes what is checked. The one flag there is changes only who
+the output is for:
+
+```sh
+shelfmark doctor --report
+```
+
+The same verdicts as JSON, with the corpus taken out — counts, states and
+verdict codes, never a path, a filename, a root label or a config string.
+Because nothing here phones home, a broken catalogue on your machine is
+invisible to anyone who could help; this is the one channel a local-only
+tool gets, and at roughly 1.5 KB it fits in an issue. It carries the
+failure streak, which is the difference between "it is broken" and "it has
+been broken since Tuesday, 113 runs".
+
+The whole shape, nothing elided:
+
+```json
+{
+  "shelfmark": "0.4.7", "python": "3.13.13",
+  "platform": "darwin", "machine": "arm64", "release": "25.5.0",
+  "roots": {"configured": 3, "readable": 3},
+  "catalogue": {"files": 32942, "evicted": 0,
+                "rights": {"OWN": 3933, "REFERENCE": 27818,
+                           "RESTRICTED": 955, "UNKNOWN": 236}},
+  "status": {"state": "ok", "detail_kind": "clean",
+             "failing_since": null, "consecutive_failures": 0},
+  "findings": [{"code": "reader_missing_msg", "status": "warn",
+                "count": 2318}],
+  "worst": "warn"
+}
+```
+
+The redaction is not a convention anyone has to remember: the report
+copies no free text, so a check added later cannot leak through it, and a
+test plants a canary string in the root name, the filename and the config
+and fails if it comes out the other end.
 
 ### When a guard stops you
 
@@ -400,6 +438,110 @@ shelfmark refresh --force        # accept the short walk, prune past the ceiling
 `--force` backs the catalogue up to `catalog.db.bak-preprune` before
 deleting anything. If instead a root was merely unmounted or unreadable,
 fix that and refresh normally — the rows are still there.
+
+### A worked example: somebody renames a folder
+
+This is the failure the guards exist for, start to finish. A 200-file
+corpus: 60 documents in `Clients/Acme`, 140 in `Admin`. Every line below is
+real output; only the paths are shortened.
+
+**1 — a clean build.**
+
+```text
+$ shelfmark refresh
+cataloguing ~/Paperwork -> ~/.local/share/shelfmark/catalog.db
+seen 200  new 200  updated 0  unchanged 0  rematerialised 0
+evicted 0  corrupt 0  restricted 0
+```
+
+**2 — `Clients/Acme` is renamed to `Clients/ACME Corp`.** Nothing was
+deleted, but every catalogued path under the old name now points at
+nothing, and the walk finds 60 files it has never seen:
+
+```text
+$ shelfmark refresh
+seen 200  new 60  updated 0  unchanged 140  rematerialised 0
+
+prune REFUSED — 60 of 200 rows are no longer on disk, over the 2% ceiling.
+  Nothing was deleted; the index still lists them. A real deletion, an
+  unreadable subtree, or an upgrade widening the default skip list all look
+  like this. Check what went missing, then re-run with --force to accept it.
+```
+
+The refusal is the right call: from here a rename and a mass deletion are
+the same event. The status is now `degraded`, not `ok` — the run finished,
+but the catalogue knowingly lists 60 rows whose files are gone.
+
+**3 — run it again** and the catalogue is carrying both copies, so the
+coverage floor takes over from the prune ceiling:
+
+```text
+$ shelfmark refresh
+FAILED — walk saw 200/260 catalogued files, below the 80% floor — the root
+was unreadable to this process, that many files really went away, or an
+upgrade widened the default skip list. Index NOT updated; re-run with
+--force if the deletion or the new skip list is right.
+```
+
+It stays failed on every subsequent run. It does not quieten down.
+
+**4 — meanwhile, what an agent gets.** No tool answers as if nothing
+happened; the warning leads, and the streak is in it:
+
+```text
+⚠ the last refresh FAILED (walk saw 200/260 catalogued files, below the 80%
+floor … — 2 consecutive runs since 2026-08-11T08:46:01Z) — answers below
+come from the previous snapshot.
+
+showing 3 of 120 match(es) for '"acme"':
+
+- Clients/Acme/acme_note_055.md
+    note  [UNKNOWN]
+```
+
+Note the paths: it is still answering, and answering from the old names.
+That is why the banner is not optional.
+
+**5 — ask what is wrong.**
+
+```text
+$ shelfmark doctor
+  [ok  ]  root (primary) is readable
+  [ok  ]  the catalogue is outside any sync folder
+  [ok  ]  the corpus is materialised on disk
+  [FAIL]  the last refresh FAILED — 2 consecutive runs since 2026-08-11T08:46:01Z
+     walk saw 200/260 catalogued files, below the 80% floor — …
+     -> The refresh already said this on stderr; if you are only seeing it now,
+       whatever runs it is discarding its output.
+
+2 of 5 checks need attention.
+$ echo $?
+1
+```
+
+**6 — the files really did move, so accept it.**
+
+```text
+$ shelfmark refresh --force
+seen 200  new 0  updated 0  unchanged 200  rematerialised 0
+--force: accepting coverage 200/260 (below the 80% floor)
+--force: pruned 60 rows, over the 2% ceiling (backup: catalog.db.bak-preprune)
+```
+
+**7 — confirm, and note that `stats` ends with a real walk, not a clock:**
+
+```text
+$ shelfmark doctor
+  [ok  ]  the last refresh completed cleanly
+1 of 5 checks need attention.
+
+$ shelfmark stats
+✓ index fresh — matches disk, last refresh 0 min ago
+```
+
+The one warning left is `100% of the catalogue has UNKNOWN rights`, which
+is true of any corpus before `shelfmark review` has run — see
+[Getting rights set](#getting-rights-set-shelfmark-review).
 
 ### You do not schedule this
 

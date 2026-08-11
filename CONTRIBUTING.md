@@ -2,6 +2,26 @@
 
 Bug reports, reproductions and small focused patches are all welcome.
 
+## Reporting a bug
+
+Include the output of:
+
+```sh
+shelfmark doctor --report
+```
+
+It is JSON, about 1.5 KB, and it is built so you do not have to read it
+before pasting: counts, states and verdict codes only — no path, no
+filename, no root label, no string from your config. It carries the
+version, the platform and architecture, the shape of the catalogue, and
+the failure streak, which is what separates a transient from something
+that has been wrong since an upgrade.
+
+Nothing in shelfmark phones home, which is the point of it and also why a
+broken catalogue on your machine is invisible from here. That report is
+the only channel there is, so it is worth pasting even when you think the
+problem is obvious.
+
 ## Before you open a PR
 
 ```sh

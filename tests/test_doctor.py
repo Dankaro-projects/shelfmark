@@ -231,3 +231,191 @@ def test_a_healthy_setup_exits_zero_and_says_so(built):
     assert rc == 0
     assert "nothing to fix" in out or "need attention" in out
     assert "FAIL" not in out
+
+
+# ------------------------------------------------------------- the report
+#
+# The report exists to travel: into an issue, a support thread, a paste. So
+# the tests that matter are the ones that pin what must NOT be in it. A
+# canary name is planted in the root folder, the filename and the config,
+# and every assertion below is that the canary did not come out the other
+# end -- which is a claim about the whole structure, not about the fields
+# somebody remembered to check.
+
+CANARY = "ACME-CONFIDENTIAL-MERGER"
+
+
+def canary_config(tmp_path):
+    """A setup whose every path component is the canary."""
+    root = tmp_path / f"{CANARY}-root"
+    (root / f"{CANARY}-folder").mkdir(parents=True)
+    (root / f"{CANARY}-folder" / f"{CANARY}-file.md").write_text("x\n")
+    db = tmp_path / "data" / "catalog.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    cfg_file = tmp_path / "canary.toml"
+    cfg_file.write_text(textwrap.dedent(f"""
+        [index]
+        db = {toml_str(db)}
+
+        [[roots]]
+        label = "{CANARY}-label"
+        path = {toml_str(root / f"{CANARY}-folder")}
+
+        [[roots]]
+        path = {toml_str(root)}
+
+        [scan]
+        skip_dirs = ["{CANARY}-skipped"]
+    """).strip() + "\n")
+    return config_mod.load(cfg_file)
+
+
+def as_json(cfg) -> str:
+    import json
+    return json.dumps(doctor.report(cfg), sort_keys=True)
+
+
+def test_the_report_carries_no_path_filename_or_label(tmp_path):
+    cfg = canary_config(tmp_path)
+    blob = as_json(cfg)
+    assert CANARY not in blob
+    assert str(tmp_path) not in blob
+    assert str(cfg.db) not in blob
+
+
+def test_the_report_still_carries_no_canary_once_the_catalogue_exists(
+        tmp_path):
+    cfg = canary_config(tmp_path)
+    from shelfmark import refresh
+    refresh.run(cfg)
+    blob = as_json(cfg)
+    assert CANARY not in blob
+    # and it did report something real about that catalogue
+    assert doctor.report(cfg)["catalogue"]["files"] >= 1
+
+
+def test_a_detail_naming_a_folder_is_classified_not_copied(tmp_path):
+    import json
+    cfg = canary_config(tmp_path)
+    cfg.status_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg.status_path.write_text(json.dumps({
+        "state": "degraded",
+        "detail": f"1 folder(s) unreadable ({tmp_path}/{CANARY}-folder) — "
+                  f"rows kept, contents unseen this run",
+        "finished_utc": "2026-08-11T00:00:00Z",
+        "failing_since": "2026-08-07T09:00:00Z",
+        "consecutive_failures": 113,
+    }), encoding="utf-8")
+
+    got = doctor.report(cfg)["status"]
+    assert got["detail_kind"] == "unreadable_folders"
+    assert got["failing_since"] == "2026-08-07T09:00:00Z"
+    assert got["consecutive_failures"] == 113
+    assert CANARY not in as_json(cfg)
+
+
+def test_an_unrecognised_detail_becomes_other_rather_than_passing_through(
+        tmp_path):
+    import json
+    cfg = canary_config(tmp_path)
+    cfg.status_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg.status_path.write_text(json.dumps({
+        "state": "degraded", "detail": f"something new about {CANARY}",
+        "finished_utc": "2026-08-11T00:00:00Z"}), encoding="utf-8")
+    assert doctor.report(cfg)["status"]["detail_kind"] == "other"
+    assert CANARY not in as_json(cfg)
+
+
+def test_every_finding_carries_a_code(built):
+    """An untagged Finding would report as 'uncoded' rather than leak, but a
+    verdict nobody can identify is not worth sending either."""
+    codes = [f["code"] for f in doctor.report(built)["findings"]]
+    assert codes and "uncoded" not in codes
+
+
+def test_the_report_and_the_human_form_agree_on_the_exit_code(tmp_path,
+                                                              corpus):
+    db = tmp_path / "data" / "catalog.db"
+    cfg = write_config(tmp_path, corpus, db)
+    human = io.StringIO()
+    machine = io.StringIO()
+    assert (doctor.run(cfg, out=human, as_report=False)
+            == doctor.run(cfg, out=machine, as_report=True))
+    # the machine form is JSON, the human form is not
+    import json
+    json.loads(machine.getvalue())
+    assert not machine.getvalue().startswith("\nconfig:")
+
+
+# ---------------------------------------------------------- the last run
+#
+# doctor's whole claim is "the problems that fail silently". A refresh that
+# has been failing since Tuesday is the loudest such problem there is, and
+# it lives in a file doctor was not reading.
+
+def write_status(cfg, **fields):
+    import json
+    cfg.status_path.parent.mkdir(parents=True, exist_ok=True)
+    body = {"finished_utc": "2026-08-11T00:00:00Z"}
+    body.update(fields)
+    cfg.status_path.write_text(json.dumps(body), encoding="utf-8")
+
+
+def test_a_failing_refresh_is_reported_and_is_fatal(tmp_path, corpus):
+    cfg = write_config(tmp_path, corpus, tmp_path / "data" / "catalog.db")
+    write_status(cfg, state="failed", detail="walk saw 200/260 catalogued "
+                 "files, below the 80% floor",
+                 failing_since="2026-08-07T09:00:00Z",
+                 consecutive_failures=113)
+    rc, text = report(cfg)
+    assert "FAILED" in text
+    assert "113 consecutive runs since 2026-08-07T09:00:00Z" in text
+    assert rc == 1
+
+
+def test_a_degraded_refresh_warns_without_being_fatal(tmp_path, corpus):
+    cfg = write_config(tmp_path, corpus, tmp_path / "data" / "catalog.db")
+    write_status(cfg, state="degraded", detail="prune REFUSED — 60 of 200 "
+                 "rows are stale (>2%)", consecutive_failures=1)
+    rc, text = report(cfg)
+    assert "degraded" in text
+    assert rc == 0
+
+
+def test_one_failure_is_not_dressed_up_as_a_streak(tmp_path, corpus):
+    """'1 consecutive run' is noise wearing the costume of information."""
+    cfg = write_config(tmp_path, corpus, tmp_path / "data" / "catalog.db")
+    write_status(cfg, state="failed", detail="x",
+                 failing_since="2026-08-11T00:00:00Z",
+                 consecutive_failures=1)
+    _, text = report(cfg)
+    assert "consecutive" not in text
+
+
+def test_a_clean_refresh_says_so(tmp_path, corpus):
+    cfg = write_config(tmp_path, corpus, tmp_path / "data" / "catalog.db")
+    write_status(cfg, state="ok", detail="clean")
+    rc, text = report(cfg)
+    assert "the last refresh completed cleanly" in text
+    assert rc == 0
+
+
+def test_no_status_file_yet_is_not_a_finding(tmp_path, corpus):
+    """Before the first refresh there is no run to report on, and
+    catalogue_absent already covers it. Two findings for one fact trains
+    people to skim."""
+    cfg = write_config(tmp_path, corpus, tmp_path / "data" / "catalog.db")
+    codes = [f["code"] for f in doctor.report(cfg)["findings"]]
+    assert not any(c.startswith("refresh_") for c in codes)
+
+
+def test_the_streak_reaches_the_redacted_report(tmp_path):
+    cfg = canary_config(tmp_path)
+    write_status(cfg, state="failed",
+                 detail=f"1 folder(s) unreadable ({tmp_path}/{CANARY})",
+                 failing_since="2026-08-07T09:00:00Z",
+                 consecutive_failures=113)
+    got = doctor.report(cfg)
+    hit = [f for f in got["findings"] if f["code"] == "refresh_failed"]
+    assert hit and hit[0]["count"] == 113
+    assert CANARY not in as_json(cfg)
