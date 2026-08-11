@@ -461,7 +461,7 @@ def cmd_stats(args) -> int:
 
 def cmd_doctor(args) -> int:
     from . import doctor
-    return doctor.run(_load(args))
+    return doctor.run(_load(args), as_report=args.report)
 
 
 def cmd_serve(args) -> int:
@@ -664,6 +664,10 @@ def main(argv=None) -> None:
 
     p = sub.add_parser("doctor", help="check the setup for the problems that "
                                       "fail silently")
+    p.add_argument("--report", action="store_true",
+                   help="emit the same verdicts as JSON, with no paths, "
+                        "filenames or config strings — safe to paste into a "
+                        "bug report")
     p.set_defaults(fn=cmd_doctor)
 
     p = sub.add_parser("build", help="walk the tree and update the catalogue")

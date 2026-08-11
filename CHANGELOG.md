@@ -2,6 +2,47 @@
 
 Notable changes per release. Dates are UTC.
 
+## Unreleased
+
+### Fixed
+- **`doctor` now reports whether the last refresh actually worked.** It
+  checked whether the setup *could* work and never opened
+  `REFRESH_STATUS.json`, so a catalogue that had been failing for days got
+  a clean bill of health from the one command whose stated job is "the
+  problems that fail silently" — the same detection-without-delivery shape
+  as the four-day field failure, in the tool built to catch it. Found while
+  writing the README walkthrough: every other surface (the tool prefixes,
+  `stats`, the hook, `--report`) already carried the failure; `doctor` was
+  the one that did not. A failed refresh is now `FAIL` and exits non-zero, a
+  degraded one warns, and both carry the streak — "113 consecutive runs
+  since Tuesday" sends the operator somewhere different from "it failed".
+  The remedy names the likely reason they are only hearing about it now:
+  something is discarding the refresh's stderr.
+
+### Added
+- **`shelfmark doctor --report`** — the same verdicts as JSON, with the
+  corpus taken out, for pasting into an issue. Nothing here phones home,
+  which is the product working as intended and also why a stranger's
+  broken catalogue is invisible to anyone who could help: the failure that
+  motivated the streak fields ran for four days in a log nobody opened. A
+  local-only tool gets one channel, and it is the operator's clipboard.
+  The report carries version, platform and architecture, root and rule
+  *counts*, the guard thresholds in force, the catalogue's size and rights
+  split, the status state with its failure streak, and every finding as a
+  fixed verdict code — never a path, a filename, a root label or a string
+  from the config. The refresh's `detail` is classified into one of five
+  kinds rather than copied, because it quotes the machine (the
+  unreadable-folder detail names the folder), and an unrecognised detail
+  becomes `other` rather than passing through: a vague report is a smaller
+  failure than somebody's folder structure in a public issue. Redaction is
+  structural rather than remembered — `report()` copies no free text, so a
+  check added later cannot leak through it, and a test plants a canary in
+  the root name, the filename and the config and fails if it surfaces. On
+  a 33k-file corpus the whole thing is about 1.5 KB.
+
+  `doctor`'s "no flags" rule stands: no flag changes what is checked, and
+  this one changes only who the output is for.
+
 ## 0.4.7 — 2026-08-11
 
 ### Fixed
