@@ -2,7 +2,7 @@
 
 Notable changes per release. Dates are UTC.
 
-## Unreleased
+## 0.4.8 — 2026-08-11
 
 ### Fixed
 - **`doctor` now reports whether the last refresh actually worked.** It
