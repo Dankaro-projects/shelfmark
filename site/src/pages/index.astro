@@ -214,18 +214,39 @@ const guarantees = [
           </p>
         </div>
 
-        <div class="grid-3 stat-grid" data-reveal="group">
-          <div class="card stat-card">
-            <span class="stat-num">Thousands</span>
-            <span class="stat-unit">of files</span>
-            <p>Catalogued in seconds</p>
+        <div class="proof-flow" aria-label="Shelfmark catalogue flow">
+          <div class="flow-sources" data-reveal="group">
+            <div class="card flow-card source-card">
+              <div class="flow-label"><Icon name="doc" /> File volume</div>
+              <span class="stat-num">Thousands</span>
+              <span class="stat-unit">of files</span>
+              <p>Catalogued in seconds</p>
+            </div>
+            <div class="card flow-card source-card">
+              <div class="flow-label"><Icon name="folder" /> Collection scale</div>
+              <span class="stat-num">Large</span>
+              <span class="stat-unit">document collections</span>
+              <p>Across local and cloud storage</p>
+            </div>
           </div>
-          <div class="card stat-card">
-            <span class="stat-num">Large</span>
-            <span class="stat-unit">document collections</span>
-            <p>Works across local and cloud storage</p>
+
+          <div class="flow-connector flow-connector-in" aria-hidden="true">
+            <span class="flow-signal"></span>
           </div>
-          <div class="card stat-card">
+
+          <div class="catalogue-hub" data-reveal>
+            <span class="hub-icon"><Icon name="database" /></span>
+            <strong>Shelfmark</strong>
+            <span>Local catalogue</span>
+            <small>Structure and metadata</small>
+          </div>
+
+          <div class="flow-connector flow-connector-out" aria-hidden="true">
+            <span class="flow-signal"></span>
+          </div>
+
+          <div class="card flow-card output-card" data-reveal>
+            <div class="flow-label"><Icon name="target" /> Model context</div>
             <span class="stat-num">Small</span>
             <span class="stat-unit">context footprint</span>
             <p>Structure first, content only when needed</p>
@@ -411,21 +432,125 @@ const guarantees = [
     align-items: end;
   }
   .proof-heading .section-lede { margin-top: 0; }
-  .stat-grid { margin-top: 3rem; }
-  .stat-card { display: flex; flex-direction: column; }
+  .proof-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(3rem, 7vw) minmax(9rem, 0.65fr) minmax(3rem, 7vw) minmax(0, 1fr);
+    align-items: center;
+    margin-top: 2.5rem;
+  }
+  .flow-sources {
+    position: relative;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .flow-card {
+    position: relative;
+    display: flex;
+    min-height: 9.5rem;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.35rem 1.5rem;
+  }
+  .flow-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.75rem;
+    color: var(--ink-45);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .flow-label :global(svg) { width: 0.95rem; color: var(--orange); }
+  .flow-sources::after {
+    content: "";
+    position: absolute;
+    top: 25%;
+    right: -1.5rem;
+    bottom: 25%;
+    border-right: 2px dotted var(--hairline-strong);
+  }
+  .source-card::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -1.5rem;
+    width: 1.5rem;
+    border-top: 2px dotted var(--hairline-strong);
+  }
+  .flow-connector {
+    position: relative;
+    height: 2px;
+    border-top: 2px dotted var(--hairline-strong);
+  }
+  .flow-signal {
+    position: absolute;
+    top: -5px;
+    left: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    border: 2px solid var(--canvas);
+    border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 0.8rem rgba(255, 95, 31, 0.5);
+  }
+  :global(.motion-ok) .flow-connector-in .flow-signal {
+    animation: signal-right 2.8s var(--ease-brand) infinite;
+  }
+  :global(.motion-ok) .flow-connector-out .flow-signal {
+    animation: signal-right 2.8s var(--ease-brand) 1.2s infinite;
+  }
+  .catalogue-hub {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    aspect-ratio: 1;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 1rem;
+    border: 1px solid var(--orange);
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--white);
+    text-align: center;
+    box-shadow: 0 0 0 0.55rem var(--orange-06), var(--shadow-card);
+  }
+  .hub-icon {
+    display: grid;
+    width: 2.4rem;
+    height: 2.4rem;
+    margin-bottom: 0.65rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--orange);
+  }
+  .hub-icon :global(svg) { width: 1.2rem; }
+  .catalogue-hub strong { font-size: 1.05rem; }
+  .catalogue-hub > span:not(.hub-icon) { margin-top: 0.12rem; color: rgba(255, 255, 255, 0.72); font-size: 0.72rem; }
+  .catalogue-hub small { margin-top: 0.55rem; color: rgba(255, 255, 255, 0.45); font-size: 0.58rem; }
   .stat-num {
-    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-size: clamp(1.9rem, 3vw, 2.8rem);
     font-weight: 800;
     line-height: 1.05;
     letter-spacing: var(--tracking-tight);
   }
   .stat-unit { margin-top: 0.3rem; color: var(--ink-70); font-weight: 700; }
-  .stat-card p {
-    margin-top: 1.2rem;
-    padding-top: 1rem;
+  .flow-card p {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
     border-top: 1px solid var(--hairline);
     color: var(--orange);
+    font-size: 0.78rem;
     font-weight: 700;
+  }
+  @keyframes signal-right {
+    0% { left: 0; opacity: 0; }
+    18% { opacity: 1; }
+    82% { opacity: 1; }
+    100% { left: calc(100% - 0.55rem); opacity: 0; }
   }
   .closing-cta {
     display: flex;
@@ -459,7 +584,37 @@ const guarantees = [
     .product-film video { max-height: 52svh; height: auto; }
     .governance-grid .story-visual { order: 0; }
     .governance-grid .story-copy { order: 1; }
+    .proof-flow {
+      grid-template-columns: 1fr;
+      justify-items: stretch;
+    }
+    .flow-sources { grid-template-columns: 1fr 1fr; }
+    .flow-sources::after,
+    .source-card::after { display: none; }
+    .flow-connector {
+      width: 2px;
+      height: 2.5rem;
+      justify-self: center;
+      border-top: 0;
+      border-left: 2px dotted var(--hairline-strong);
+    }
+    .flow-signal { top: 0; left: -5px; }
+    :global(.motion-ok) .flow-connector-in .flow-signal,
+    :global(.motion-ok) .flow-connector-out .flow-signal {
+      animation-name: signal-down;
+    }
+    .catalogue-hub {
+      width: 10rem;
+      justify-self: center;
+    }
     .closing-cta { align-items: flex-start; flex-direction: column; }
+  }
+
+  @keyframes signal-down {
+    0% { top: 0; opacity: 0; }
+    18% { opacity: 1; }
+    82% { opacity: 1; }
+    100% { top: calc(100% - 0.55rem); opacity: 0; }
   }
 
   @media (max-height: 719px) {
@@ -469,6 +624,7 @@ const guarantees = [
 
   @media (max-width: 560px) {
     .storage-list { grid-template-columns: repeat(5, 6.75rem); }
+    .flow-sources { grid-template-columns: 1fr; }
     .guarantee-list { grid-template-columns: 1fr; }
     .film-caption { gap: 0.4rem; font-size: 0.62rem; }
     .closing-actions { width: 100%; }
