@@ -4,8 +4,9 @@ import Icon from '../components/Icon.astro';
 
 const storage = [
   { icon: 'drive', label: 'Local drives' },
-  { icon: 'cloud', label: 'iCloud and OneDrive' },
-  { icon: 'sync', label: 'Nextcloud' },
+  { logo: '/media/icloud.svg', label: 'iCloud' },
+  { logo: '/media/onedrive.svg', label: 'OneDrive' },
+  { logo: '/media/nextcloud.svg', label: 'Nextcloud' },
   { icon: 'network', label: 'Network shares' },
 ];
 
@@ -109,9 +110,14 @@ const guarantees = [
             exist. The hard part is discovering what matters without giving an
             agent unrestricted access to everything.
           </p>
-          <div class="storage-list" data-reveal="group">
+          <div class="storage-list" data-reveal="group" aria-label="Supported storage">
             {storage.map((item) => (
-              <span><Icon name={item.icon} /> {item.label}</span>
+              <span class="storage-item">
+                {item.logo
+                  ? <img src={item.logo} alt="" width="24" height="24" />
+                  : item.icon && <Icon name={item.icon} />}
+                <span>{item.label}</span>
+              </span>
             ))}
           </div>
           <p class="story-rule" data-reveal>
@@ -324,23 +330,37 @@ const guarantees = [
   .product-copy .section-title { max-width: 16ch; }
   .story-visual img { max-height: 64svh; object-fit: cover; }
   .storage-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     margin-top: 2rem;
-  }
-  .storage-list span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.65rem 0.9rem;
+    overflow-x: auto;
     border: 1px solid var(--hairline-strong);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-md);
     background: var(--white);
-    font-size: 0.82rem;
-    font-weight: 700;
   }
-  .storage-list :global(svg) { width: 1rem; color: var(--orange); }
+  .storage-item {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.9rem 0.35rem;
+    color: var(--ink);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .storage-item + .storage-item { border-left: 1px solid var(--hairline-strong); }
+  .storage-item img,
+  .storage-item :global(svg) {
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: none;
+  }
+  .storage-item :global(svg) { color: var(--orange); }
   .story-rule {
     margin-top: 2rem;
     padding-left: 1rem;
@@ -447,6 +467,7 @@ const guarantees = [
   }
 
   @media (max-width: 560px) {
+    .storage-list { grid-template-columns: repeat(5, 6.75rem); }
     .guarantee-list { grid-template-columns: 1fr; }
     .film-caption { gap: 0.4rem; font-size: 0.62rem; }
     .closing-actions { width: 100%; }
