@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import PageHero from '../components/PageHero.astro';
 import Icon from '../components/Icon.astro';
 
 // All commands, outputs and numbers on this page trace to the shelfmark
@@ -45,9 +44,9 @@ Decks                        2              0
 
 const configSections = [
   ['[[roots]]', 'The trees to index. One unlabelled primary root; extra roots get a label prefix.'],
-  ['[index]', 'Where the SQLite catalogue lives. Must be outside every indexed root and outside cloud-synced folders — enforced, not advised.'],
+  ['[index]', 'Where the SQLite catalogue lives. It must be outside every indexed root and outside cloud-synced folders. This is enforced, not advised.'],
   ['[privacy]', 'Regexes for secrets and private subtrees → RESTRICTED. Built-ins already cover .env, key/cert files, id_rsa, backup codes, identity documents.'],
-  ['[authors]', 'Regexes for your own name/company, client authors, and generator tools — drives OWN/REFERENCE classification from OOXML authorship.'],
+  ['[authors]', 'Regexes for your own name/company, client authors, and generator tools. These drive OWN/REFERENCE classification from OOXML authorship.'],
   ['[rights]', 'Path-prefix rules for the two-axis model: rights (may I reuse it) × confidential (may it leave).'],
   ['[facets]', 'Which top-level folders count as work/personal; where client and project names sit in the path.'],
   ['[doc_types] / [context_types]', 'Extra filename/folder rules, checked before the built-in bilingual (EN/ES) defaults; built-ins can be disabled by name.'],
@@ -115,27 +114,34 @@ const faq = [
 ---
 
 <Base
-  title="Documentation — shelfmark"
+  title="Documentation | shelfmark"
   description="Install, configure, govern, and keep current: the complete technical instructions for shelfmark, from uv tool install to Claude Code hooks."
 >
-  <PageHero
-    eyebrow="Documentation"
-    title={[
-      'The operator’s',
-      '<span class="serif-italic">manual</span>.',
-    ]}
-    lede="Install to connected in three commands. Everything corpus-specific lives in one config file; everything here traces to the project README."
-  />
+  <div class="container docs-page">
+    <header class="docs-header">
+      <div>
+        <p class="eyebrow">Documentation</p>
+        <h1>Operator reference.</h1>
+        <p>
+          Install to connected in three commands. Configure, govern, and keep
+          the catalogue current from one place.
+        </p>
+      </div>
+      <div class="docs-header-actions">
+        <a href="#quickstart" class="btn btn-primary">Quickstart</a>
+        <a href="https://github.com/Dankaro-projects/shelfmark#readme" rel="noopener" class="btn btn-secondary">GitHub ↗</a>
+      </div>
+    </header>
 
-  <div class="container docs-layout">
-    <aside class="docs-nav" aria-label="On this page">
-      <p class="docs-nav-title">On this page</p>
-      {sections.map((s) => (
-        <a href={`#${s.id}`} class="docs-nav-link" data-spy={s.id}>{s.label}</a>
-      ))}
-    </aside>
+    <div class="docs-layout">
+      <aside class="docs-nav" aria-label="On this page">
+        <p class="docs-nav-title">On this page</p>
+        {sections.map((s) => (
+          <a href={`#${s.id}`} class="docs-nav-link" data-spy={s.id}>{s.label}</a>
+        ))}
+      </aside>
 
-    <div class="docs-body">
+      <div class="docs-body">
       <!-- ============ INSTALL ============ -->
       <section id="install" class="doc-section">
         <h2>Install</h2>
@@ -150,8 +156,8 @@ const faq = [
           </div>
         </div>
         <p>
-          Python ≥ 3.11. macOS, Linux and Windows — the full suite runs on all
-          three in CI, including the Windows-specific behaviours (OneDrive
+          Python ≥ 3.11. The full suite runs on macOS, Linux and Windows,
+          with all three covered in CI. This includes Windows-specific behaviours (OneDrive
           placeholder detection, junction refusal at the root boundary).
         </p>
         <p>
@@ -161,8 +167,8 @@ const faq = [
           requires a build toolchain.
         </p>
         <div class="readout">
-          <pre>uv tool install "shelfmark[msg]"      # .msg — no compiler needed
-uv tool install "shelfmark[pst]"      # .pst — compiles from C source
+          <pre>uv tool install "shelfmark[msg]"      # .msg, no compiler needed
+uv tool install "shelfmark[pst]"      # .pst, compiles from C source
 uv tool install "shelfmark[email]"    # both</pre>
         </div>
       </section>
@@ -171,14 +177,14 @@ uv tool install "shelfmark[email]"    # both</pre>
       <section id="quickstart" class="doc-section">
         <h2>Quickstart</h2>
         <p>
-          Three commands, and <code>init</code> finds your documents for you —
-          when the default root misses, it sweeps for the folders that do hold
+          Three commands, and <code>init</code> finds your documents for you.
+          When the default root misses, it sweeps for the folders that do hold
           documents, and one keypress fixes the config.
         </p>
         <div class="readout"><pre>{quickstart}</pre></div>
         <p>
           That's install to connected. The agent's first call then looks like
-          this — a real <code>corpus_stats()</code> answer:
+          this. It is a real <code>corpus_stats()</code> answer:
         </p>
         <div class="readout"><pre>{statsSample}</pre></div>
         <p>
@@ -194,7 +200,7 @@ uv tool install "shelfmark[email]"    # both</pre>
       <section id="configuration" class="doc-section">
         <h2>Configuration</h2>
         <p>
-          Everything corpus-specific lives in <code>config.toml</code> — the
+          Everything corpus-specific lives in <code>config.toml</code>. The
           code ships with neutral defaults only. Resolution order:
           <code>--config</code> flag → <code>$SHELFMARK_CONFIG</code> →
           <code>~/.config/shelfmark/config.toml</code>.
@@ -226,7 +232,7 @@ uv tool install "shelfmark[email]"    # both</pre>
         <p>
           A method may belong to you while the client deliverable containing it
           stays confidential. <code>shareable_only=True</code> means
-          <em>positively</em> classified — <code>confidential=0 AND rights IN
+          <em>positively</em> classified: <code>confidential=0 AND rights IN
           (OWN, REFERENCE)</code>. Never-reviewed files are held back:
           unreviewed is not the same as cleared.
         </p>
@@ -244,7 +250,7 @@ uv tool install "shelfmark[email]"    # both</pre>
         <h3>Getting rights set: <code>shelfmark review</code></h3>
         <p>
           Most files carry no OOXML author, so path rules are the only mechanism
-          that can classify them — and that knowledge is yours, not the
+          that can classify them, and that knowledge is yours, not the
           corpus's. <code>review</code> asks for it, biggest win first, with
           what the catalogue knows on screen:
         </p>
@@ -256,12 +262,12 @@ uv tool install "shelfmark[email]"    # both</pre>
           five answers settled 80% of the unclassified files.
         </p>
         <div class="readout">
-          <pre>shelfmark review                 # dry run — shows what it would write
+          <pre>shelfmark review                 # dry run, shows what it would write
 shelfmark review --apply         # writes the prefixes, re-derives rights</pre>
         </div>
         <p>
-          It writes <strong>config, never rights values in the data</strong> —
-          any answer is undone by editing the config and re-running
+          It writes <strong>config, never rights values in the data</strong>.
+          Any answer is undone by editing the config and re-running
           <code>shelfmark rights</code>.
         </p>
       </section>
@@ -274,9 +280,9 @@ shelfmark review --apply         # writes the prefixes, re-derives rights</pre>
 shelfmark refresh --if-needed    # only if a write landed or the index is old</pre>
         </div>
         <p>
-          <code>refresh</code> is incremental by (size, mtime, cloud-residency)
-          — a couple of seconds over a ~30k-file tree — and asserts its own
-          correctness on every run: walk coverage, guarded pruning, and
+          <code>refresh</code> works incrementally from size, modification time,
+          and cloud residency. A tree of about 30,000 files takes a couple of
+          seconds. Every run asserts walk coverage, guarded pruning, and
           governance invariants. Results land in
           <code>REFRESH_STATUS.json</code> next to the DB.
         </p>
@@ -287,19 +293,19 @@ shelfmark refresh --if-needed    # only if a write landed or the index is old</p
           passed. Nothing to install, no timer to configure. If you maintain the
           catalogue some other way, <code>shelfmark-mcp --no-auto-refresh</code>
           leaves it alone. When the index cannot be trusted, every tool says so
-          above its answer — an old snapshot is never presented as complete
+          above its answer. An old snapshot is never presented as complete
           knowledge.
         </p>
         <h3>When a guard stops you</h3>
         <p>
           The size guards cannot tell "the root was unreadable" from "those
-          files really were deleted" — both look like a short walk. So they
+          files really were deleted" because both look like a short walk. So they
           refuse, name both possibilities, and leave the index untouched:
         </p>
         <div class="readout"><pre>{guardSample}</pre></div>
         <p>
           Check which it was. If the files are genuinely gone,
-          <code>shelfmark refresh --force</code> accepts it — after backing the
+          <code>shelfmark refresh --force</code> accepts it after backing the
           catalogue up to <code>catalog.db.bak-preprune</code>. If a root was
           merely unmounted or unreadable, fix that and refresh normally: the
           rows are still there.
@@ -320,8 +326,8 @@ shelfmark refresh --if-needed    # only if a write landed or the index is old</p
         <p>
           Result lists always say when they are cut
           (<code>showing 100 of 195 …</code>), unknown filter values are
-          reported as bad filters with suggestions — never as an empty corpus —
-          and excerpts mark their truncation point.
+          reported as bad filters with suggestions, never as an empty corpus.
+          Excerpts mark their truncation point.
         </p>
       </section>
 
@@ -340,7 +346,7 @@ shelfmark refresh --if-needed    # only if a write landed or the index is old</p
             <strong>A rule edit does not relabel existing files.</strong> The
             builder is incremental, so after any rule change:
             <div class="readout">
-              <pre>shelfmark reclassify all          # dry run — shows what would change
+              <pre>shelfmark reclassify all          # dry run, shows what would change
 shelfmark reclassify all --apply</pre>
             </div>
             Do <strong>not</strong> use <code>build --rebuild</code> for this:
@@ -357,8 +363,8 @@ shelfmark reclassify all --apply</pre>
         <p>
           Checks the setup for the failures that stay quiet: a catalogue inside
           a cloud-synced folder (a torn sync-restore opens and answers
-          <em>wrongly</em>), a root the process cannot read — on macOS usually
-          Full Disk Access — a database folder that is not writable, a corpus
+          <em>wrongly</em>), a root the process cannot read (usually Full Disk
+          Access on macOS), a database folder that is not writable, a corpus
           that is mostly cloud-evicted, and any email format in the catalogue
           with no reader installed. It names the fix rather than the fault,
           prints the evidence behind each guess, and exits non-zero on anything
@@ -366,7 +372,7 @@ shelfmark reclassify all --apply</pre>
         </p>
         <p>
           <code>shelfmark doctor --report</code> emits the same verdicts as
-          JSON with the corpus taken out — counts, states and verdict codes,
+          JSON with the corpus taken out: counts, states and verdict codes,
           never a path, filename, root label or config string. At roughly
           1.5&nbsp;KB it fits in an issue, and it carries the failure streak:
           the difference between "it is broken" and "it has been broken since
@@ -381,7 +387,7 @@ shelfmark reclassify all --apply</pre>
         <div class="readout"><pre>{missesSample}</pre></div>
         <p>
           A term appearing in no filename, path, author, title or slide title
-          was unreachable however it was phrased — that is the pattern that
+          was unreachable however it was phrased. That is the pattern that
           should reopen content extraction. It stays local, is capped, and never
           leaves your machine; turn it off with
           <code>[misses] enabled = false</code>.
@@ -392,7 +398,7 @@ shelfmark reclassify all --apply</pre>
       <section id="hashing" class="doc-section">
         <h2>Content hashing &amp; duplicates</h2>
         <p>
-          The refresh never reads file contents — it must stay fast. To populate
+          The refresh never reads file contents because it must stay fast. To populate
           hashes for duplicate detection:
         </p>
         <div class="readout">
@@ -401,7 +407,7 @@ shelfmark hash --limit 2000      # chip away at it</pre>
         </div>
         <p>
           Sensitive rows are never opened, and neither are symlinks. On
-          cloud-synced trees, dataless placeholder files are skipped — reading
+          cloud-synced trees, dataless placeholder files are skipped. Reading
           one silently yields the hash of the empty string, which would make
           distinct files look identical.
         </p>
@@ -422,7 +428,7 @@ shelfmark hash --limit 2000      # chip away at it</pre>
             Do not wrap these in <code>&gt;/dev/null 2&gt;&amp;1</code>.
             <small>
               Every refusal the refresh reports goes to stderr, so the redirect
-              discards the only delivery of the news — it is how a catalogue
+              discards the only delivery of the news. It is how a catalogue
               once stayed silently wrong for four days. <code>shelfmark
               hook</code> is silent when healthy and always exits 0; there is
               nothing left to suppress.
@@ -447,16 +453,38 @@ shelfmark hash --limit 2000      # chip away at it</pre>
           · <a href="https://pypi.org/project/shelfmark/" rel="noopener" class="doc-link">PyPI ↗</a>
         </p>
       </section>
+      </div>
     </div>
   </div>
 </Base>
 
 <style>
+  .docs-page { padding-top: 8.5rem; }
+  .docs-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--hairline-strong);
+  }
+  .docs-header h1 {
+    margin-top: 0.8rem;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+  }
+  .docs-header p:not(.eyebrow) {
+    max-width: 58ch;
+    margin-top: 0.8rem;
+    color: var(--ink-70);
+    font-size: 1rem;
+  }
+  .docs-header-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
   .docs-layout {
     display: grid;
     grid-template-columns: 220px 1fr;
     gap: 4rem;
     align-items: start;
+    padding-top: 2rem;
     padding-bottom: 6rem;
   }
 
@@ -571,6 +599,8 @@ shelfmark hash --limit 2000      # chip away at it</pre>
   .faq-more { margin-top: 1.6rem; }
 
   @media (max-width: 900px) {
+    .docs-page { padding-top: 7rem; }
+    .docs-header { align-items: flex-start; flex-direction: column; }
     .docs-layout { grid-template-columns: 1fr; gap: 1.5rem; }
     .docs-nav {
       position: static;

@@ -1,387 +1,455 @@
 ---
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
-import DotMap from '../components/DotMap.astro';
 
-const rejected = [
-  { icon: 'folder', title: 'Reorganise everything', desc: 'Months of restructuring before the first useful answer.' },
-  { icon: 'cloud', title: 'Migrate into a new platform', desc: 'Move the estate to make it legible — and maintain two copies of reality.' },
-  { icon: 'alert', title: 'Grant broad filesystem access', desc: 'Hand an agent everything and hope for the best.' },
+const storage = [
+  { icon: 'drive', label: 'Local drives' },
+  { icon: 'cloud', label: 'iCloud and OneDrive' },
+  { icon: 'sync', label: 'Nextcloud' },
+  { icon: 'network', label: 'Network shares' },
 ];
 
-const pipeline = [
-  { title: 'Filesystem', desc: 'Files live in place. Nothing moves.' },
-  { title: 'Local catalogue', desc: 'Metadata and structure only — not content.' },
-  { title: 'Permissions', desc: 'You define what each agent may see.' },
-  { title: 'Agent view', desc: 'Only what is allowed. Nothing more.' },
+const principles = [
+  {
+    icon: 'drive',
+    title: 'Files stay in place',
+    text: 'No migration, duplicate corpus, or reorganisation project.',
+  },
+  {
+    icon: 'database',
+    title: 'The catalogue stays local',
+    text: 'Shelfmark records metadata and structure, never document bodies.',
+  },
+  {
+    icon: 'shield',
+    title: 'Permissions stay in control',
+    text: 'Every agent receives only the view it is allowed to discover.',
+  },
 ];
 
-const needs = [
-  'What exists',
-  'Where it lives',
-  'What is relevant',
-  'What they are permitted to access',
-  'What is worth opening next',
+const guarantees = [
+  'No document content stored',
+  'No forced migration',
+  'No broad filesystem access',
+  'No stale index presented as complete',
 ];
 ---
 
 <Base
-  title="shelfmark — a governed map of what exists"
-  description="A local, privacy-first document catalogue + MCP server. Shelfmark hands AI agents structure, not content — you decide what they see."
+  title="Shelfmark | Governed document discovery"
+  description="Shelfmark gives AI agents a governed map of your document estate while files and content stay in place."
 >
-  <!-- ============ HERO ============ -->
-  <section class="panel panel--hero home-hero">
-    <div class="conduit" aria-hidden="true">
-      <div class="conduit-bg"></div>
-      <div class="conduit-fill"></div>
-    </div>
-    <div class="container hero-grid">
-      <div class="hero-copy">
-        <p class="eyebrow" data-hero-fade>A Dankaro product</p>
-        <h1 class="hero-title">
-          <span class="hero-line"><span>A governed <span class="serif-italic">map</span></span></span>
-          <span class="hero-line"><span>of what exists.</span></span>
-        </h1>
-        <p class="section-lede" data-hero-fade>
-          Shelfmark catalogues your document estate where it lives — local
-          drives, iCloud, OneDrive, Nextcloud, network shares — and hands AI
-          agents <strong>structure, not content</strong>. You decide what they see.
-        </p>
-        <div class="hero-actions" data-hero-fade>
-          <a href="/get-started" class="btn btn-primary">Get started</a>
-          <a href="/model" class="btn btn-secondary">How it works</a>
-        </div>
-        <div class="chip" data-hero-fade>
-          <span>uv tool install shelfmark</span>
-          <button class="chip-copy" data-copy="uv tool install shelfmark">Copy</button>
-        </div>
-      </div>
-
-      <div class="hero-visual" data-hero-fade>
-        <DotMap />
-        <div class="readout">
-          <div><span class="r-prompt">›</span> corpus_stats()</div>
-          <div>40,000 files · 65 GB · <span class="r-hi">indexed in under 2 s</span></div>
-          <div class="r-dim">governed view · structure only · no content stored</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ THE PROBLEM ============ -->
-  <section class="panel">
-    <div class="container">
-      <p class="eyebrow" data-reveal>The problem</p>
-      <h2 class="section-title" data-reveal>Enterprise knowledge already exists.</h2>
-      <p class="section-lede" data-reveal>
-        The real problem is <strong>access</strong>, <strong>privacy</strong>, and
-        <strong>context</strong>. The default responses all make it worse:
-      </p>
-
-      <div class="grid-3 rejected-grid" data-reveal="group">
-        {rejected.map((r) => (
-          <div class="card rejected-card">
-            <div class="rejected-head">
-              <div class="card-icon"><Icon name={r.icon} /></div>
-              <Icon name="x-circle" class="rejected-x" />
-            </div>
-            <h3>{r.title}</h3>
-            <p>{r.desc}</p>
+  <div class="home-story">
+    <section id="intro" class="panel panel--hero home-slide home-hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow" data-hero-fade>A Dankaro product</p>
+          <h1 class="hero-title">
+            <span class="hero-line"><span>Know what <span class="serif-italic">exists</span>.</span></span>
+            <span class="hero-line"><span>Reveal what matters.</span></span>
+          </h1>
+          <p class="section-lede" data-hero-fade>
+            Shelfmark gives AI agents a governed map of the files already on
+            your systems. It reveals structure, enforces boundaries, and leaves
+            every document where it is.
+          </p>
+          <div class="hero-actions" data-hero-fade>
+            <a href="/docs#quickstart" class="btn btn-primary">Get started</a>
+            <a href="/docs" class="btn btn-secondary">Read the docs</a>
           </div>
-        ))}
-      </div>
-
-      <div class="banner banner--rule" data-reveal>
-        <p>
-          Messy environments are not an edge case.
-          <em> They are the reality.</em>
-        </p>
-      </div>
-
-      <a href="/problem" class="text-link panel-link" data-reveal>
-        Read the problem <Icon name="arrow" />
-      </a>
-    </div>
-  </section>
-
-  <!-- ============ THE MODEL ============ -->
-  <section class="panel">
-    <div class="container">
-      <p class="eyebrow" data-reveal>The model</p>
-      <h2 class="section-title" data-reveal>
-        Agents understand the estate — without full access to the data.
-      </h2>
-
-      <div class="pipeline" data-reveal="group">
-        {pipeline.map((step, i) => (
-          <>
-            <div class="card pipe-card">
-              <span class="pipe-step mono">{String(i + 1).padStart(2, '0')}</span>
-              <h3>{step.title}</h3>
-              <p>{step.desc}</p>
-            </div>
-            {i < pipeline.length - 1 && (
-              <Icon name="arrow" class="pipe-arrow" />
-            )}
-          </>
-        ))}
-      </div>
-
-      <div class="banner" data-reveal>
-        <div class="banner-icon"><Icon name="layers" /></div>
-        <p>
-          Shelfmark indexes file metadata and structure only,
-          <em> not document bodies.</em>
-        </p>
-      </div>
-
-      <a href="/model" class="text-link panel-link" data-reveal>
-        See the model <Icon name="arrow" />
-      </a>
-    </div>
-  </section>
-
-  <!-- ============ COVERAGE STRIP ============ -->
-  <section class="panel panel--short">
-    <div class="container">
-      <p class="eyebrow" data-reveal>Works where your data lives</p>
-      <h2 class="section-title" data-reveal>No migration. No restructuring.</h2>
-      <div class="coverage-row" data-reveal="group">
-        <span class="coverage-chip"><Icon name="cloud" /> iCloud Drive</span>
-        <span class="coverage-chip"><Icon name="cloud" /> OneDrive</span>
-        <span class="coverage-chip"><Icon name="sync" /> Nextcloud</span>
-        <span class="coverage-chip"><Icon name="drive" /> Local &amp; external disks</span>
-        <span class="coverage-chip"><Icon name="network" /> Network shares</span>
-      </div>
-      <a href="/coverage" class="text-link panel-link" data-reveal>
-        See the coverage <Icon name="arrow" />
-      </a>
-    </div>
-  </section>
-
-  <!-- ============ FILM ============ -->
-  <section class="panel panel--short">
-    <div class="container">
-      <p class="eyebrow" data-reveal>Nothing moves</p>
-      <h2 class="section-title" data-reveal>The estate becomes visible. In place.</h2>
-      <div class="film" data-reveal>
-        <video
-          autoplay
-          muted
-          loop
-          playsinline
-          preload="metadata"
-          poster="/media/estate-scan-poster.jpg"
-          width="1920"
-          height="1080"
-          aria-label="A slow camera glide over an enterprise file estate rendered as geometric blocks; an orange scan plane passes and a grid of index nodes assembles above the files."
-        >
-          <source src="/media/estate-scan.mp4" type="video/mp4" />
-        </video>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ PROOF ============ -->
-  <section class="panel">
-    <div class="container">
-      <p class="eyebrow" data-reveal>Proof points</p>
-      <h2 class="section-title" data-reveal>Fast to index. Cheap to query.</h2>
-
-      <div class="grid-3 stat-grid" data-reveal="group">
-        <div class="card stat-card">
-          <span class="stat-num"><span class="mono" data-count-to="40000">0</span></span>
-          <span class="stat-unit">files / 65 GB</span>
-          <p class="stat-note text-orange">Indexed in under 2 seconds</p>
+          <div class="chip" data-hero-fade>
+            <span>uv tool install shelfmark</span>
+            <button class="chip-copy" data-copy="uv tool install shelfmark">Copy</button>
+          </div>
         </div>
-        <div class="card stat-card">
-          <span class="stat-num"><span class="mono" data-count-to="74">0</span> GB</span>
-          <span class="stat-unit">OneDrive corpus</span>
-          <p class="stat-note text-orange">Validated on Windows ARM64</p>
-        </div>
-        <div class="card stat-card">
-          <span class="stat-num"><span class="mono">500–1,000</span></span>
-          <span class="stat-unit">tokens</span>
-          <p class="stat-note text-orange">Typical discovery context footprint</p>
+
+        <div class="hero-film" data-hero-fade>
+          <video
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            poster="/media/model-layers.webp"
+            width="1440"
+            height="1080"
+            aria-label="A filesystem, local catalogue, permission layer, and governed agent view assembling above one another."
+          >
+            <source src="/media/model-layers.mp4" type="video/mp4" />
+          </video>
+          <div class="film-caption mono">
+            <span>filesystem</span>
+            <Icon name="arrow" />
+            <span>catalogue</span>
+            <Icon name="arrow" />
+            <span class="text-orange">governed view</span>
+          </div>
         </div>
       </div>
+    </section>
 
-      <a href="/proof" class="text-link panel-link" data-reveal>
-        See the numbers <Icon name="arrow" />
-      </a>
-    </div>
-  </section>
-
-  <!-- ============ WHY + CTA ============ -->
-  <section class="panel why-panel">
-    <div class="container">
-      <p class="eyebrow" data-reveal>Why it matters</p>
-      <h2 class="section-title why-title" data-reveal>
-        See the estate. Respect the boundaries.
-        Open only <span class="serif-italic">what matters</span>.
-      </h2>
-      <p class="section-lede" data-reveal>
-        Agents don't need everything. They need to know the minimum required to
-        act safely and well — before consuming expensive context windows or
-        touching sensitive files.
-      </p>
-
-      <ul class="needs-list" data-reveal="group">
-        {needs.map((n) => (
-          <li><Icon name="check-circle" class="needs-check" /> {n}</li>
-        ))}
-      </ul>
-
-      <div class="cta-row" data-reveal>
-        <a href="/get-started" class="btn btn-primary">Get started</a>
-        <a href="https://pypi.org/project/shelfmark/" rel="noopener" class="btn btn-secondary">
-          pypi.org/project/shelfmark ↗
-        </a>
+    <section id="problem" class="panel home-slide">
+      <div class="container story-grid">
+        <div class="story-visual" data-reveal>
+          <img
+            src="/media/problem-estate.webp"
+            alt="A complex document estate distributed across computers, storage systems, and nested folders."
+            width="1400"
+            height="1045"
+            loading="lazy"
+          />
+        </div>
+        <div class="story-copy">
+          <p class="eyebrow" data-reveal>The reality</p>
+          <h2 class="section-title" data-reveal>
+            Your knowledge is not missing. It is scattered.
+          </h2>
+          <p class="section-lede" data-reveal>
+            Years of reports, research, presentations, and working files already
+            exist. The hard part is discovering what matters without giving an
+            agent unrestricted access to everything.
+          </p>
+          <div class="storage-list" data-reveal="group">
+            {storage.map((item) => (
+              <span><Icon name={item.icon} /> {item.label}</span>
+            ))}
+          </div>
+          <p class="story-rule" data-reveal>
+            Useful AI should not require a migration project first.
+          </p>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+
+    <section id="product" class="panel home-slide product-slide">
+      <div class="container product-grid">
+        <div class="product-film" data-reveal>
+          <video
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            poster="/media/estate-scan-poster.jpg"
+            width="1920"
+            height="1080"
+            aria-label="An enterprise file estate becomes a structured map as an orange scan passes over it."
+          >
+            <source src="/media/estate-scan.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <div class="product-copy">
+          <p class="eyebrow" data-reveal>The product</p>
+          <h2 class="section-title" data-reveal>Map the estate in place.</h2>
+          <p class="section-lede" data-reveal>
+            Shelfmark builds a fast local catalogue from the signals your
+            filesystem already has. Agents can orient, narrow the search, and
+            choose what is worth opening next.
+          </p>
+          <div class="principle-list" data-reveal="group">
+            {principles.map((item) => (
+              <div class="principle">
+                <div class="card-icon"><Icon name={item.icon} /></div>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.text}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="governance" class="panel home-slide">
+      <div class="container story-grid governance-grid">
+        <div class="story-copy">
+          <p class="eyebrow" data-reveal>The boundary</p>
+          <h2 class="section-title" data-reveal>
+            Agents see a view, not the filesystem.
+          </h2>
+          <p class="section-lede" data-reveal>
+            Shelfmark applies privacy and rights rules before results reach the
+            caller. The boundary lives in the engine, not in a prompt that can
+            be forgotten.
+          </p>
+          <ul class="guarantee-list" data-reveal="group">
+            {guarantees.map((item) => (
+              <li><Icon name="check-circle" /> {item}</li>
+            ))}
+          </ul>
+          <a href="/docs#governance" class="text-link" data-reveal>
+            Read the governance model <Icon name="arrow" />
+          </a>
+        </div>
+        <div class="story-visual" data-reveal>
+          <img
+            src="/media/coverage-topology.webp"
+            alt="Storage systems remain in place while structural index lines converge on one local catalogue."
+            width="1400"
+            height="1045"
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section id="proof" class="panel home-slide proof-slide">
+      <div class="container">
+        <div class="proof-heading">
+          <div>
+            <p class="eyebrow" data-reveal>Built for working collections</p>
+            <h2 class="section-title" data-reveal>Fast to index. Light to query.</h2>
+          </div>
+          <p class="section-lede" data-reveal>
+            The catalogue is deliberately small, local, and useful before any
+            document content enters a model context.
+          </p>
+        </div>
+
+        <div class="grid-3 stat-grid" data-reveal="group">
+          <div class="card stat-card">
+            <span class="stat-num">Thousands</span>
+            <span class="stat-unit">of files</span>
+            <p>Catalogued in seconds</p>
+          </div>
+          <div class="card stat-card">
+            <span class="stat-num">Large</span>
+            <span class="stat-unit">document collections</span>
+            <p>Works across local and cloud storage</p>
+          </div>
+          <div class="card stat-card">
+            <span class="stat-num">Small</span>
+            <span class="stat-unit">context footprint</span>
+            <p>Structure first, content only when needed</p>
+          </div>
+        </div>
+
+        <div class="closing-cta" data-reveal>
+          <div>
+            <strong>One config file. One command to stay current.</strong>
+            <span>Python 3.11+. MIT licensed. Local by design.</span>
+          </div>
+          <div class="closing-actions">
+            <a href="/docs#quickstart" class="btn btn-primary">Install Shelfmark</a>
+            <a href="https://github.com/Dankaro-projects/shelfmark" rel="noopener" class="btn btn-secondary">GitHub ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
 </Base>
 
 <style>
-  /* ---- Hero ---- */
-  .home-hero { padding-top: 6rem; }
-  .hero-grid {
+  .home-story { position: relative; counter-reset: chapter; }
+  .home-slide { counter-increment: chapter; }
+
+  @media (min-width: 901px) and (min-height: 720px) and (prefers-reduced-motion: no-preference) {
+    :global(html) { scroll-snap-type: y proximity; }
+    .home-slide {
+      position: sticky;
+      top: 0;
+      height: 100svh;
+      min-height: 100svh;
+      overflow: hidden;
+      scroll-snap-align: start;
+      padding-block: clamp(5.5rem, 9vh, 6.5rem) 3rem;
+      background: var(--canvas);
+      border-top: 1px solid var(--hairline-strong);
+      box-shadow: 0 -24px 60px rgba(17, 17, 17, 0.08);
+      isolation: isolate;
+    }
+    .home-slide:nth-child(even) { background: var(--canvas-light); }
+    .home-slide:first-child { border-top: 0; box-shadow: none; }
+    .home-slide::after {
+      content: "0" counter(chapter) " / 05";
+      position: absolute;
+      right: max(var(--gutter), calc((100vw - var(--max-width)) / 2 + var(--gutter)));
+      bottom: 1.2rem;
+      color: var(--ink-45);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+    }
+    :global(.site-footer) { scroll-snap-align: start; }
+  }
+
+  .hero-grid,
+  .story-grid,
+  .product-grid {
     display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
-    gap: 4rem;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2.5rem, 5vw, 5rem);
     align-items: center;
   }
   .hero-title {
-    margin-top: 1.3rem;
-    font-size: clamp(2.7rem, 6vw, 4.6rem);
+    margin-top: 1.2rem;
+    font-size: clamp(2.8rem, 5.7vw, 4.8rem);
   }
   .hero-line { display: block; overflow: hidden; padding-block: 0.06em; }
   .hero-line > span { display: block; will-change: transform; }
-  .hero-actions { display: flex; gap: 0.9rem; margin-top: 2rem; flex-wrap: wrap; }
-  .hero-copy .chip { margin-top: 1.4rem; }
-  .hero-visual { display: flex; flex-direction: column; gap: 1rem; }
+  .hero-actions { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 2rem; }
+  .hero-copy .chip { margin-top: 1.25rem; }
 
-  /* ---- Conduit line (home only) ---- */
-  .conduit {
-    position: absolute;
-    top: 92vh;
-    bottom: 0;
-    left: calc(50% - var(--max-width) / 2 + 0.25rem);
-    width: 2px;
-    pointer-events: none;
-  }
-  .conduit-bg {
-    position: absolute; inset: 0;
-    background-image: linear-gradient(to bottom, var(--hairline-strong) 55%, transparent 55%);
-    background-size: 2px 12px;
-  }
-  .conduit-fill {
-    position: absolute; top: 0; left: 0; width: 2px; height: 0%;
-    background: var(--orange);
-    box-shadow: 0 0 10px var(--orange-glow);
-    border-radius: 2px;
-  }
-  @media (max-width: 1300px) { .conduit { display: none; } }
-
-  /* Section flourishes */
-  .panel-link { margin-top: 2.2rem; }
-  .rejected-grid, .stat-grid, .pipeline, .coverage-row { margin-top: 3rem; }
-  .banner { margin-top: 2.5rem; }
-
-  /* ---- Rejected cards ---- */
-  .rejected-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-  .rejected-head :global(.rejected-x) { width: 1.4rem; height: 1.4rem; color: var(--gray); }
-
-  /* ---- Pipeline ---- */
-  .pipeline {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
-    gap: 0.9rem;
-    align-items: center;
-  }
-  .pipe-card { padding: 1.6rem; height: 100%; }
-  .pipe-step {
-    font-size: 0.72rem;
-    color: var(--orange);
-    display: block;
-    margin-bottom: 0.7rem;
-  }
-  .pipe-card h3 { font-size: 1.05rem; }
-  .pipe-card p { font-size: 0.85rem; }
-  .pipeline :global(.pipe-arrow) { width: 1.3rem; height: 1.3rem; color: var(--orange); flex: none; }
-  @media (max-width: 900px) {
-    .pipeline { grid-template-columns: 1fr; }
-    .pipeline :global(.pipe-arrow) { transform: rotate(90deg); margin-inline: auto; }
-  }
-
-  /* ---- Film ---- */
-  .film { margin-top: 2.6rem; }
-  .film video {
-    width: 100%;
-    height: auto;
-    display: block;
+  .hero-film,
+  .story-visual,
+  .product-film {
+    overflow: hidden;
     border: 1px solid var(--hairline-strong);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
     background: var(--canvas-light);
+    box-shadow: var(--shadow-card);
   }
-
-  /* ---- Coverage chips ---- */
-  .coverage-row { display: flex; flex-wrap: wrap; gap: 0.8rem; }
-  .coverage-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    background: var(--white);
-    border: 1px solid var(--hairline-strong);
-    border-radius: var(--radius-full);
-    padding: 0.65rem 1.2rem;
-    font-weight: 700;
-    font-size: 0.92rem;
+  .hero-film video,
+  .story-visual img,
+  .product-film video {
+    display: block;
+    width: 100%;
+    height: auto;
   }
-  .coverage-chip :global(svg) { width: 1.1rem; height: 1.1rem; color: var(--orange); }
-
-  /* ---- Stats ---- */
-  .stat-card { display: flex; flex-direction: column; }
-  .stat-num {
-    font-size: clamp(2.2rem, 3.6vw, 3rem);
-    font-weight: 800;
-    letter-spacing: var(--tracking-tight);
-    line-height: 1.1;
-  }
-  .stat-unit { font-weight: 700; color: var(--ink-70); margin-top: 0.2rem; }
-  .stat-note { margin-top: 1rem; font-weight: 700; font-size: 0.9rem; }
-
-  /* ---- Why ---- */
-  .why-title { max-width: 24ch; }
-  .needs-list {
-    list-style: none;
-    margin-top: 2.5rem;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 0.9rem;
-    max-width: 820px;
-  }
-  .needs-list li {
+  .hero-film video { max-height: 66svh; object-fit: cover; }
+  .film-caption {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
     background: var(--white);
-    border: 1px solid var(--hairline-strong);
-    border-radius: var(--radius-sm);
-    padding: 0.85rem 1.1rem;
-    font-weight: 700;
-    font-size: 0.95rem;
+    color: var(--ink-70);
+    font-size: 0.72rem;
   }
-  .needs-list li :global(.needs-check) { width: 1.25rem; height: 1.25rem; color: var(--orange); flex: none; }
-  .cta-row { display: flex; gap: 0.9rem; margin-top: 2.6rem; flex-wrap: wrap; }
+  .film-caption :global(svg) { width: 0.9rem; color: var(--ink-45); }
+
+  .story-copy .section-title,
+  .product-copy .section-title { max-width: 16ch; }
+  .story-visual img { max-height: 64svh; object-fit: cover; }
+  .storage-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 2rem;
+  }
+  .storage-list span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-full);
+    background: var(--white);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .storage-list :global(svg) { width: 1rem; color: var(--orange); }
+  .story-rule {
+    margin-top: 2rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--orange);
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  .product-grid { grid-template-columns: 1.15fr 0.85fr; }
+  .product-film video { height: min(66svh, 660px); object-fit: cover; }
+  .principle-list { margin-top: 2rem; }
+  .principle {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: center;
+    padding-block: 1rem;
+  }
+  .principle + .principle { border-top: 1px solid var(--hairline-strong); }
+  .principle .card-icon { margin: 0; }
+  .principle strong { display: block; font-size: 0.95rem; }
+  .principle span { display: block; margin-top: 0.15rem; color: var(--ink-70); font-size: 0.82rem; }
+
+  .governance-grid .story-copy { order: 1; }
+  .governance-grid .story-visual { order: 2; }
+  .guarantee-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+    margin-top: 2rem;
+    list-style: none;
+  }
+  .guarantee-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+  }
+  .guarantee-list :global(svg) { width: 1.1rem; color: var(--orange); flex: none; }
+  .governance-grid .text-link { margin-top: 2rem; }
+
+  .proof-heading {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: end;
+  }
+  .proof-heading .section-lede { margin-top: 0; }
+  .stat-grid { margin-top: 3rem; }
+  .stat-card { display: flex; flex-direction: column; }
+  .stat-num {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: var(--tracking-tight);
+  }
+  .stat-unit { margin-top: 0.3rem; color: var(--ink-70); font-weight: 700; }
+  .stat-card p {
+    margin-top: 1.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--hairline);
+    color: var(--orange);
+    font-weight: 700;
+  }
+  .closing-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding: 1.4rem 1.6rem;
+    border-radius: var(--radius-md);
+    background: var(--ink);
+    color: var(--white);
+  }
+  .closing-cta strong { display: block; font-size: 1.05rem; }
+  .closing-cta span { display: block; margin-top: 0.2rem; color: rgba(255, 255, 255, 0.58); font-size: 0.82rem; }
+  .closing-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+  .closing-cta .btn-primary { background: var(--orange); }
+  .closing-cta .btn-primary:hover { background: var(--white); color: var(--ink); }
+  .closing-cta .btn-secondary { border-color: rgba(255, 255, 255, 0.5); color: var(--white); }
+  .closing-cta .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
 
   @media (max-width: 900px) {
-    .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
-    .home-hero { padding-top: 7rem; }
+    .hero-grid,
+    .story-grid,
+    .product-grid,
+    .proof-heading { grid-template-columns: 1fr; gap: 2.2rem; }
+    .home-slide { min-height: auto; padding-block: 4.5rem; }
+    .home-hero { min-height: 100svh; padding-top: 7rem; }
+    .hero-film { order: -1; margin-top: 1rem; }
+    .hero-film video { max-height: 42svh; }
+    .story-visual img,
+    .product-film video { max-height: 52svh; height: auto; }
+    .governance-grid .story-visual { order: 0; }
+    .governance-grid .story-copy { order: 1; }
+    .closing-cta { align-items: flex-start; flex-direction: column; }
+  }
+
+  @media (max-height: 719px) {
+    .home-slide { min-height: auto; padding-block: 4.5rem; }
+    .home-hero { min-height: 100svh; padding-top: 7rem; }
+  }
+
+  @media (max-width: 560px) {
+    .guarantee-list { grid-template-columns: 1fr; }
+    .film-caption { gap: 0.4rem; font-size: 0.62rem; }
+    .closing-actions { width: 100%; }
+    .closing-actions .btn { width: 100%; }
   }
 </style>

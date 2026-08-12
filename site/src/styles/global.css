@@ -1,8 +1,8 @@
 /* shelfmark — global styles.
    Tokens + base adapted from the gaptiq-ui-kit design system (ink/orange/beige,
    Manrope + Instrument Serif italic accent, hairline structure, soft radii).
-   Shelfmark-specific layer: the mono "instrument" readouts (paths, tool calls,
-   token counts) and the governed-map dot motif. */
+   Shelfmark-specific layer: the mono "instrument" readouts for paths, tool
+   calls, and token counts. */
 
 :root {
   /* ---- Palette ---- */
@@ -139,21 +139,12 @@ button { font: inherit; cursor: pointer; }
 
 /* ---- Section headers ---- */
 .eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
+  display: inline-block;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--orange);
-}
-.eyebrow::before {
-  content: '';
-  width: 1.4rem;
-  height: 2px;
-  background: var(--orange);
-  border-radius: 2px;
 }
 
 .section-title {
