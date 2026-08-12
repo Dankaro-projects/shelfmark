@@ -1,0 +1,198 @@
+---
+// Floating pill nav. Active link derived from the current pathname.
+import Logo from './Logo.astro';
+
+const links = [
+  { href: '/problem', label: 'Problem' },
+  { href: '/model', label: 'Model' },
+  { href: '/coverage', label: 'Coverage' },
+  { href: '/proof', label: 'Proof' },
+  { href: '/docs', label: 'Docs' },
+];
+const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
+---
+
+<header class="site-header">
+  <div class="header-pill">
+    <a href="/" class="brand" aria-label="shelfmark home">
+      <Logo size={24} class="brand-mark" />
+      <span class="brand-name">shelfmark</span>
+      <span class="brand-by">Dankaro</span>
+    </a>
+
+    <nav class="nav" aria-label="Main">
+      {links.map((l) => (
+        <a href={l.href} class:list={['nav-link', { active: path === l.href }]}>
+          {l.label}
+        </a>
+      ))}
+    </nav>
+
+    <a href="/get-started" class="btn btn-primary header-cta">Get started</a>
+
+    <button class="nav-toggle" aria-expanded="false" aria-label="Open menu">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<div class="nav-overlay" hidden>
+  <nav aria-label="Main mobile">
+    <a href="/" class:list={['overlay-link', { active: path === '/' }]}>Home</a>
+    {links.map((l) => (
+      <a href={l.href} class:list={['overlay-link', { active: path === l.href }]}>
+        {l.label}
+      </a>
+    ))}
+    <a href="/get-started" class="overlay-link overlay-cta">Get started</a>
+  </nav>
+</div>
+
+<style>
+  .site-header {
+    position: fixed;
+    top: 1.1rem;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: center;
+    padding-inline: var(--gutter);
+    pointer-events: none;
+  }
+  .header-pill {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    width: 100%;
+    max-width: 940px;
+    background: rgba(247, 245, 241, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-full);
+    padding: 0.5rem 0.55rem 0.5rem 1.3rem;
+    box-shadow: var(--shadow-pill);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    margin-right: auto;
+  }
+  .brand-mark { align-self: center; color: var(--ink); }
+  .brand-name {
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: var(--tracking-tight);
+  }
+  .brand-by {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-45);
+  }
+  .nav { display: flex; gap: 1.4rem; }
+  .nav-link {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--ink-70);
+    position: relative;
+  }
+  .nav-link:hover { color: var(--ink); }
+  .nav-link.active { color: var(--orange); }
+  .header-cta { padding: 0.55rem 1.2rem; font-size: 0.85rem; }
+
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 2.4rem;
+    height: 2.4rem;
+    background: var(--ink);
+    border: none;
+    border-radius: 50%;
+    align-items: center;
+  }
+  .nav-toggle span {
+    display: block;
+    width: 0.95rem;
+    height: 2px;
+    background: var(--white);
+    border-radius: 2px;
+    transition: var(--t-fast);
+  }
+  .nav-toggle[aria-expanded='true'] span:first-child { transform: translateY(3.5px) rotate(45deg); }
+  .nav-toggle[aria-expanded='true'] span:last-child { transform: translateY(-3.5px) rotate(-45deg); }
+
+  .nav-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--canvas);
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    transition: opacity 0.35s var(--ease-brand);
+  }
+  /* The explicit display would otherwise override the `hidden` attribute,
+     leaving an invisible click-eating layer over the whole page. */
+  .nav-overlay[hidden] { display: none; }
+  .nav-overlay.open { opacity: 1; }
+  .nav-overlay nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    text-align: center;
+  }
+  .overlay-link {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.4s var(--ease-brand), transform 0.4s var(--ease-brand), color 0.2s;
+  }
+  .nav-overlay.open .overlay-link { opacity: 1; transform: none; }
+  .nav-overlay.open .overlay-link:nth-child(2) { transition-delay: 0.05s; }
+  .nav-overlay.open .overlay-link:nth-child(3) { transition-delay: 0.1s; }
+  .nav-overlay.open .overlay-link:nth-child(4) { transition-delay: 0.15s; }
+  .nav-overlay.open .overlay-link:nth-child(5) { transition-delay: 0.2s; }
+  .nav-overlay.open .overlay-link:nth-child(6) { transition-delay: 0.25s; }
+  .overlay-link.active, .overlay-link:hover { color: var(--orange); }
+  .overlay-cta { color: var(--orange); }
+
+  @media (max-width: 820px) {
+    .nav, .header-cta, .brand-by { display: none; }
+    .nav-toggle { display: inline-flex; }
+    .header-pill { gap: 1rem; padding: 0.45rem 0.45rem 0.45rem 1.1rem; }
+  }
+</style>
+
+<script>
+  function bindMenu() {
+    const toggle = document.querySelector('.nav-toggle');
+    const overlay = document.querySelector('.nav-overlay');
+    if (!(toggle instanceof HTMLElement) || !(overlay instanceof HTMLElement)) return;
+
+    const close = () => {
+      toggle.setAttribute('aria-expanded', 'false');
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      setTimeout(() => (overlay.hidden = true), 350);
+    };
+    toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') === 'true';
+      if (open) return close();
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add('open'));
+      toggle.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+    });
+    overlay.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
+  }
+  document.addEventListener('astro:page-load', bindMenu);
+</script>

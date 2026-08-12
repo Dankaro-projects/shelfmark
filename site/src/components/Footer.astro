@@ -1,0 +1,100 @@
+---
+import Logo from './Logo.astro';
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="/" class="footer-logo" aria-label="shelfmark home">
+          <Logo size={28} />
+          <span>shelfmark</span>
+        </a>
+        <p class="footer-tag">
+          A local, privacy-first document catalogue + MCP server.
+          A governed discovery layer between AI agents and the real-world
+          complexity of enterprise knowledge systems.
+        </p>
+        <p class="footer-local mono">local-first · the catalogue never leaves the machine</p>
+      </div>
+
+      <nav class="footer-col" aria-label="Product">
+        <h4>Product</h4>
+        <a href="/problem">The problem</a>
+        <a href="/model">The model</a>
+        <a href="/coverage">Coverage</a>
+        <a href="/proof">Proof points</a>
+      </nav>
+
+      <nav class="footer-col" aria-label="Install">
+        <h4>Install</h4>
+        <a href="/get-started">Get started</a>
+        <a href="/docs">Documentation</a>
+        <a href="https://pypi.org/project/shelfmark/" rel="noopener">PyPI ↗</a>
+      </nav>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© {year} Dankaro · MIT licensed</span>
+      <span class="mono">uv tool install shelfmark</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--hairline-strong);
+    padding-block: 4rem 2rem;
+    background: var(--canvas);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr;
+    gap: 3rem;
+  }
+  .footer-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: var(--tracking-tight);
+  }
+  .footer-tag {
+    margin-top: 1rem;
+    font-size: 0.92rem;
+    color: var(--ink-70);
+    max-width: 40ch;
+  }
+  .footer-local {
+    margin-top: 1.25rem;
+    font-size: 0.75rem;
+    color: var(--orange);
+  }
+  .footer-col { display: flex; flex-direction: column; gap: 0.65rem; }
+  .footer-col h4 {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-45);
+    margin-bottom: 0.4rem;
+  }
+  .footer-col a { font-size: 0.92rem; font-weight: 600; color: var(--ink-70); }
+  .footer-col a:hover { color: var(--orange); }
+  .footer-bottom {
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--ink-45);
+  }
+  @media (max-width: 700px) {
+    .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+  }
+</style>

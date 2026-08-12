@@ -1,0 +1,618 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHero from '../components/PageHero.astro';
+import Icon from '../components/Icon.astro';
+
+// All commands, outputs and numbers on this page trace to the shelfmark
+// README (the operator-facing document). Update them there and here together.
+
+const sections = [
+  { id: 'install', label: 'Install' },
+  { id: 'quickstart', label: 'Quickstart' },
+  { id: 'configuration', label: 'Configuration' },
+  { id: 'governance', label: 'Rights & governance' },
+  { id: 'freshness', label: 'Keeping it current' },
+  { id: 'tools', label: 'MCP tools' },
+  { id: 'rules', label: 'Classification rules' },
+  { id: 'diagnostics', label: 'Diagnostics' },
+  { id: 'hashing', label: 'Hashing & duplicates' },
+  { id: 'hooks', label: 'Claude Code hooks' },
+  { id: 'faq', label: 'FAQ' },
+];
+
+const quickstart = `$ shelfmark init
+Wrote ~/.config/shelfmark/config.toml
+
+$ shelfmark refresh
+cataloguing ~/Paperwork -> ~/.local/share/shelfmark/catalog.db
+seen 6  new 6  updated 0  unchanged 0  rematerialised 0
+evicted 0  corrupt 0  restricted 0
+
+$ claude mcp add shelfmark -s user -- shelfmark-mcp`;
+
+const statsSample = `# shelfmark corpus
+6 files · 0.0 GB
+✓ index fresh — matches disk, last refresh 0 min ago
+
+## Roots
+root                     files  own+shareable
+Clients                      4              0
+Decks                        2              0
+
+## Rights × confidential
+  REFERENCE    may leave                5
+  UNKNOWN      unreviewed → held        1`;
+
+const configSections = [
+  ['[[roots]]', 'The trees to index. One unlabelled primary root; extra roots get a label prefix.'],
+  ['[index]', 'Where the SQLite catalogue lives. Must be outside every indexed root and outside cloud-synced folders — enforced, not advised.'],
+  ['[privacy]', 'Regexes for secrets and private subtrees → RESTRICTED. Built-ins already cover .env, key/cert files, id_rsa, backup codes, identity documents.'],
+  ['[authors]', 'Regexes for your own name/company, client authors, and generator tools — drives OWN/REFERENCE classification from OOXML authorship.'],
+  ['[rights]', 'Path-prefix rules for the two-axis model: rights (may I reuse it) × confidential (may it leave).'],
+  ['[facets]', 'Which top-level folders count as work/personal; where client and project names sit in the path.'],
+  ['[doc_types] / [context_types]', 'Extra filename/folder rules, checked before the built-in bilingual (EN/ES) defaults; built-ins can be disabled by name.'],
+];
+
+const reviewSample = `[1/8] Projects
+      493 unclassified of 662 files · folder reads as: pitch
+      is: note 202, document 89, code 88, pdf 51
+      authored by: R. Okonjo (31), A. Lindqvist (12), openpyxl (9)
+      e.g. programme-overview.pptx · phase-two-proposal.pptx
+      answer [skip]:`;
+
+const guardSample = `prune REFUSED — 60 of 200 rows are no longer on disk, over the 2% ceiling.
+  Nothing was deleted; the index still lists them. A real deletion, an
+  unreadable subtree, or an upgrade widening the default skip list all look
+  like this. Check what went missing, then re-run with --force to accept it.`;
+
+const tools = [
+  ['corpus_stats()', 'What is here overall, plus an honest freshness line. Call first.'],
+  ['browse_folder(prefix)', 'What is inside a folder: counts, sizes, facet mix.'],
+  ['search_docs(query, …)', 'Metadata full-text search with facet filters.'],
+  ['get_file(path)', 'Full record for one file: rights, authorship, slide titles, identical copies, on-disk status.'],
+  ['search_emails(query, …)', 'Full-text over an ingested .pst/.msg email archive (optional).'],
+];
+
+const hooksJson = `{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command",
+      "command": "shelfmark hook session-start", "timeout": 60}]}],
+    "PostToolUse": [{"matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "hooks": [{"type": "command", "command": "shelfmark mark-dirty"}]}],
+    "Stop": [{"hooks": [{"type": "command",
+      "command": "shelfmark hook stop"}]}]
+  }
+}`;
+
+const missesSample = `73 searches returned nothing   (2026-06-02 → 2026-08-07)
+
+Most-missed terms:
+    9  abatement
+    7  timeline      (nowhere in your metadata)
+    6  commitments   (nowhere in your metadata)
+
+41 of 62 distinct terms (66%) appear nowhere in your filenames,
+paths, authors, titles or slide titles.`;
+
+const faq = [
+  {
+    q: 'Does shelfmark upload my documents?',
+    a: 'No. It runs locally and builds a local catalogue. Document contents are not copied into it, and nothing phones home.',
+  },
+  {
+    q: 'Does it read document contents?',
+    a: 'The file catalogue does not index body text. Two deliberate, opt-in exceptions: shelfmark hash opens files to compute content hashes, and email ingestion can index message bodies so search_emails works. Both skip symlinks and honour your privacy rules.',
+  },
+  {
+    q: 'Which agents can use it?',
+    a: 'Any client that supports local MCP servers. Register with claude mcp add shelfmark -s user -- shelfmark-mcp, or point your client at the shelfmark-mcp command.',
+  },
+  {
+    q: 'Why not a vector database?',
+    a: 'A vector database is for semantic retrieval from contents. Shelfmark solves the earlier problem: discovering and governing what exists, before deciding what content should be processed at all. They are compatible; this one comes first.',
+  },
+];
+---
+
+<Base
+  title="Documentation — shelfmark"
+  description="Install, configure, govern, and keep current: the complete technical instructions for shelfmark, from uv tool install to Claude Code hooks."
+>
+  <PageHero
+    eyebrow="Documentation"
+    title={[
+      'The operator’s',
+      '<span class="serif-italic">manual</span>.',
+    ]}
+    lede="Install to connected in three commands. Everything corpus-specific lives in one config file; everything here traces to the project README."
+  />
+
+  <div class="container docs-layout">
+    <aside class="docs-nav" aria-label="On this page">
+      <p class="docs-nav-title">On this page</p>
+      {sections.map((s) => (
+        <a href={`#${s.id}`} class="docs-nav-link" data-spy={s.id}>{s.label}</a>
+      ))}
+    </aside>
+
+    <div class="docs-body">
+      <!-- ============ INSTALL ============ -->
+      <section id="install" class="doc-section">
+        <h2>Install</h2>
+        <div class="install-chips">
+          <div class="chip">
+            <span>uv tool install shelfmark</span>
+            <button class="chip-copy" data-copy="uv tool install shelfmark">Copy</button>
+          </div>
+          <div class="chip">
+            <span>pipx install shelfmark</span>
+            <button class="chip-copy" data-copy="pipx install shelfmark">Copy</button>
+          </div>
+        </div>
+        <p>
+          Python ≥ 3.11. macOS, Linux and Windows — the full suite runs on all
+          three in CI, including the Windows-specific behaviours (OneDrive
+          placeholder detection, junction refusal at the root boundary).
+        </p>
+        <p>
+          Email ingestion is optional; the extra depends on the format you have.
+          <code>.msg</code> resolves to wheels everywhere; <code>.pst</code>
+          needs <code>libpff-python</code>, which compiles from C source and
+          requires a build toolchain.
+        </p>
+        <div class="readout">
+          <pre>uv tool install "shelfmark[msg]"      # .msg — no compiler needed
+uv tool install "shelfmark[pst]"      # .pst — compiles from C source
+uv tool install "shelfmark[email]"    # both</pre>
+        </div>
+      </section>
+
+      <!-- ============ QUICKSTART ============ -->
+      <section id="quickstart" class="doc-section">
+        <h2>Quickstart</h2>
+        <p>
+          Three commands, and <code>init</code> finds your documents for you —
+          when the default root misses, it sweeps for the folders that do hold
+          documents, and one keypress fixes the config.
+        </p>
+        <div class="readout"><pre>{quickstart}</pre></div>
+        <p>
+          That's install to connected. The agent's first call then looks like
+          this — a real <code>corpus_stats()</code> answer:
+        </p>
+        <div class="readout"><pre>{statsSample}</pre></div>
+        <p>
+          Optional but worth five minutes: <code>shelfmark review</code> settles
+          rights (see <a href="#governance" class="doc-link">governance</a>),
+          <code>shelfmark stats</code> prints the census any time, and
+          <code>shelfmark config</code> shows every rights rule in the order it
+          is checked, with the number of files each one currently claims.
+        </p>
+      </section>
+
+      <!-- ============ CONFIGURATION ============ -->
+      <section id="configuration" class="doc-section">
+        <h2>Configuration</h2>
+        <p>
+          Everything corpus-specific lives in <code>config.toml</code> — the
+          code ships with neutral defaults only. Resolution order:
+          <code>--config</code> flag → <code>$SHELFMARK_CONFIG</code> →
+          <code>~/.config/shelfmark/config.toml</code>.
+        </p>
+        <table class="doc-table">
+          <thead><tr><th>Section</th><th>What it controls</th></tr></thead>
+          <tbody>
+            {configSections.map(([k, v]) => (
+              <tr><td><code>{k}</code></td><td>{v}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============ GOVERNANCE ============ -->
+      <section id="governance" class="doc-section">
+        <h2>Rights &amp; governance</h2>
+        <p>Shelfmark separates two questions that usually get confused:</p>
+        <div class="axis-cards">
+          <div class="card axis-card">
+            <code class="axis-name">rights</code>
+            <p><strong>Who owns or may reuse this?</strong> OWN / REFERENCE / RESTRICTED</p>
+          </div>
+          <div class="card axis-card">
+            <code class="axis-name">confidential</code>
+            <p><strong>May this document leave its current context?</strong> 0 / 1</p>
+          </div>
+        </div>
+        <p>
+          A method may belong to you while the client deliverable containing it
+          stays confidential. <code>shareable_only=True</code> means
+          <em>positively</em> classified — <code>confidential=0 AND rights IN
+          (OWN, REFERENCE)</code>. Never-reviewed files are held back:
+          unreviewed is not the same as cleared.
+        </p>
+        <div class="banner banner--rule">
+          <p>
+            Files matching your private/secret patterns become RESTRICTED.
+            <small>
+              No tool returns their path, name, metadata or content; no argument
+              overrides it; they are never opened for hashing.
+              <code>corpus_stats()</code> reports a single corpus-wide count of
+              sealed files and nothing else about them.
+            </small>
+          </p>
+        </div>
+        <h3>Getting rights set: <code>shelfmark review</code></h3>
+        <p>
+          Most files carry no OOXML author, so path rules are the only mechanism
+          that can classify them — and that knowledge is yours, not the
+          corpus's. <code>review</code> asks for it, biggest win first, with
+          what the catalogue knows on screen:
+        </p>
+        <div class="readout"><pre>{reviewSample}</pre></div>
+        <p>
+          Answer <code>own</code>, <code>own-private</code>,
+          <code>reference</code>, <code>client</code>, <code>personal</code>,
+          <code>scratch</code> or <code>skip</code>. On a ~1,900-file corpus,
+          five answers settled 80% of the unclassified files.
+        </p>
+        <div class="readout">
+          <pre>shelfmark review                 # dry run — shows what it would write
+shelfmark review --apply         # writes the prefixes, re-derives rights</pre>
+        </div>
+        <p>
+          It writes <strong>config, never rights values in the data</strong> —
+          any answer is undone by editing the config and re-running
+          <code>shelfmark rights</code>.
+        </p>
+      </section>
+
+      <!-- ============ FRESHNESS ============ -->
+      <section id="freshness" class="doc-section">
+        <h2>Keeping it current</h2>
+        <div class="readout">
+          <pre>shelfmark refresh                # build + rights + prune + assertions
+shelfmark refresh --if-needed    # only if a write landed or the index is old</pre>
+        </div>
+        <p>
+          <code>refresh</code> is incremental by (size, mtime, cloud-residency)
+          — a couple of seconds over a ~30k-file tree — and asserts its own
+          correctness on every run: walk coverage, guarded pruning, and
+          governance invariants. Results land in
+          <code>REFRESH_STATUS.json</code> next to the DB.
+        </p>
+        <h3>You do not schedule this</h3>
+        <p>
+          The MCP server keeps its own index current: it refreshes once on
+          startup and then whenever <code>refresh.max_age_seconds</code> has
+          passed. Nothing to install, no timer to configure. If you maintain the
+          catalogue some other way, <code>shelfmark-mcp --no-auto-refresh</code>
+          leaves it alone. When the index cannot be trusted, every tool says so
+          above its answer — an old snapshot is never presented as complete
+          knowledge.
+        </p>
+        <h3>When a guard stops you</h3>
+        <p>
+          The size guards cannot tell "the root was unreadable" from "those
+          files really were deleted" — both look like a short walk. So they
+          refuse, name both possibilities, and leave the index untouched:
+        </p>
+        <div class="readout"><pre>{guardSample}</pre></div>
+        <p>
+          Check which it was. If the files are genuinely gone,
+          <code>shelfmark refresh --force</code> accepts it — after backing the
+          catalogue up to <code>catalog.db.bak-preprune</code>. If a root was
+          merely unmounted or unreadable, fix that and refresh normally: the
+          rows are still there.
+        </p>
+      </section>
+
+      <!-- ============ TOOLS ============ -->
+      <section id="tools" class="doc-section">
+        <h2>MCP tools</h2>
+        <table class="doc-table">
+          <thead><tr><th>Tool</th><th>What it answers</th></tr></thead>
+          <tbody>
+            {tools.map(([k, v]) => (
+              <tr><td><code>{k}</code></td><td>{v}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p>
+          Result lists always say when they are cut
+          (<code>showing 100 of 195 …</code>), unknown filter values are
+          reported as bad filters with suggestions — never as an empty corpus —
+          and excerpts mark their truncation point.
+        </p>
+      </section>
+
+      <!-- ============ RULES ============ -->
+      <section id="rules" class="doc-section">
+        <h2>Classification rules</h2>
+        <p>Two things people trip over, learned the hard way:</p>
+        <ol class="doc-list">
+          <li>
+            <strong>Anchor short regex alternatives on both sides.</strong> An
+            unanchored <code>rfi</code> matches inside "Docke<b>rfi</b>le" and
+            the Spanish word "pe<b>rfi</b>l". Before adding or deleting an
+            alternative, list the filenames it actually matches.
+          </li>
+          <li>
+            <strong>A rule edit does not relabel existing files.</strong> The
+            builder is incremental, so after any rule change:
+            <div class="readout">
+              <pre>shelfmark reclassify all          # dry run — shows what would change
+shelfmark reclassify all --apply</pre>
+            </div>
+            Do <strong>not</strong> use <code>build --rebuild</code> for this:
+            it re-walks everything (and on cloud-synced trees drags every
+            evicted file back down) when the filenames are already in the DB.
+          </li>
+        </ol>
+      </section>
+
+      <!-- ============ DIAGNOSTICS ============ -->
+      <section id="diagnostics" class="doc-section">
+        <h2>Diagnostics</h2>
+        <h3><code>shelfmark doctor</code></h3>
+        <p>
+          Checks the setup for the failures that stay quiet: a catalogue inside
+          a cloud-synced folder (a torn sync-restore opens and answers
+          <em>wrongly</em>), a root the process cannot read — on macOS usually
+          Full Disk Access — a database folder that is not writable, a corpus
+          that is mostly cloud-evicted, and any email format in the catalogue
+          with no reader installed. It names the fix rather than the fault,
+          prints the evidence behind each guess, and exits non-zero on anything
+          fatal so it can gate a setup script.
+        </p>
+        <p>
+          <code>shelfmark doctor --report</code> emits the same verdicts as
+          JSON with the corpus taken out — counts, states and verdict codes,
+          never a path, filename, root label or config string. At roughly
+          1.5&nbsp;KB it fits in an issue, and it carries the failure streak:
+          the difference between "it is broken" and "it has been broken since
+          Tuesday, 113 runs".
+        </p>
+        <h3><code>shelfmark misses</code></h3>
+        <p>
+          Searches that found nothing are recorded locally, and the report
+          answers one question: <strong>could metadata search ever have found
+          it?</strong>
+        </p>
+        <div class="readout"><pre>{missesSample}</pre></div>
+        <p>
+          A term appearing in no filename, path, author, title or slide title
+          was unreachable however it was phrased — that is the pattern that
+          should reopen content extraction. It stays local, is capped, and never
+          leaves your machine; turn it off with
+          <code>[misses] enabled = false</code>.
+        </p>
+      </section>
+
+      <!-- ============ HASHING ============ -->
+      <section id="hashing" class="doc-section">
+        <h2>Content hashing &amp; duplicates</h2>
+        <p>
+          The refresh never reads file contents — it must stay fast. To populate
+          hashes for duplicate detection:
+        </p>
+        <div class="readout">
+          <pre>shelfmark hash                   # reads every unhashed, non-sensitive file
+shelfmark hash --limit 2000      # chip away at it</pre>
+        </div>
+        <p>
+          Sensitive rows are never opened, and neither are symlinks. On
+          cloud-synced trees, dataless placeholder files are skipped — reading
+          one silently yields the hash of the empty string, which would make
+          distinct files look identical.
+        </p>
+      </section>
+
+      <!-- ============ HOOKS ============ -->
+      <section id="hooks" class="doc-section">
+        <h2>Claude Code hooks</h2>
+        <p>
+          The MCP server already keeps the index current; hooks are an
+          optimisation that cuts the delay between an agent writing a file and
+          that file being searchable, from one refresh interval to the end of
+          the turn. In <code>~/.claude/settings.json</code>:
+        </p>
+        <div class="readout"><pre>{hooksJson}</pre></div>
+        <div class="banner banner--rule">
+          <p>
+            Do not wrap these in <code>&gt;/dev/null 2&gt;&amp;1</code>.
+            <small>
+              Every refusal the refresh reports goes to stderr, so the redirect
+              discards the only delivery of the news — it is how a catalogue
+              once stayed silently wrong for four days. <code>shelfmark
+              hook</code> is silent when healthy and always exits 0; there is
+              nothing left to suppress.
+            </small>
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ FAQ ============ -->
+      <section id="faq" class="doc-section">
+        <h2>FAQ</h2>
+        <div class="faq-list">
+          {faq.map((f) => (
+            <div class="card faq-card">
+              <h3>{f.q}</h3>
+              <p>{f.a}</p>
+            </div>
+          ))}
+        </div>
+        <p class="faq-more">
+          Full reference: <a href="https://github.com/Dankaro-projects/shelfmark#readme" rel="noopener" class="doc-link">README on GitHub ↗</a>
+          · <a href="https://pypi.org/project/shelfmark/" rel="noopener" class="doc-link">PyPI ↗</a>
+        </p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .docs-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 4rem;
+    align-items: start;
+    padding-bottom: 6rem;
+  }
+
+  /* ---- Side nav ---- */
+  .docs-nav {
+    position: sticky;
+    top: 6.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .docs-nav-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-45);
+    margin-bottom: 0.6rem;
+  }
+  .docs-nav-link {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink-70);
+    padding: 0.32rem 0.75rem;
+    border-left: 2px solid var(--hairline);
+    transition: var(--t-fast);
+  }
+  .docs-nav-link:hover { color: var(--ink); }
+  .docs-nav-link.active {
+    color: var(--orange);
+    border-left-color: var(--orange);
+    font-weight: 700;
+  }
+
+  /* ---- Body ---- */
+  .docs-body { min-width: 0; max-width: 72ch; }
+  .doc-section { padding-block: 2.6rem; scroll-margin-top: 6.5rem; }
+  .doc-section + .doc-section { border-top: 1px solid var(--hairline); }
+  .doc-section h2 {
+    font-size: 1.7rem;
+    margin-bottom: 1.1rem;
+  }
+  .doc-section h3 {
+    font-size: 1.12rem;
+    margin: 1.8rem 0 0.7rem;
+  }
+  .doc-section p { margin-block: 0.8rem; color: var(--ink-70); font-size: 0.97rem; }
+  .doc-section p strong, .doc-section li strong { color: var(--ink); }
+  .doc-section code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background: var(--ink-06);
+    border-radius: 5px;
+    padding: 0.1em 0.35em;
+    color: var(--ink);
+  }
+  .doc-section h2 code, .doc-section h3 code { background: none; padding: 0; }
+  .doc-link { color: var(--orange); font-weight: 700; }
+  .doc-link:hover { text-decoration: underline; }
+
+  .doc-section .readout { margin-block: 1.1rem; }
+  .doc-section .readout pre { font-family: inherit; white-space: pre; }
+  .doc-section .readout code { background: none; color: inherit; padding: 0; }
+
+  .install-chips { display: flex; gap: 0.9rem; flex-wrap: wrap; margin-block: 1.1rem; }
+
+  /* ---- Tables ---- */
+  .doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-block: 1.1rem;
+    background: var(--white);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-size: 0.92rem;
+  }
+  .doc-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-45);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--hairline-strong);
+  }
+  .doc-table td {
+    padding: 0.75rem 1rem;
+    vertical-align: top;
+    color: var(--ink-70);
+  }
+  .doc-table tr + tr td { border-top: 1px solid var(--hairline); }
+  .doc-table td:first-child { white-space: nowrap; }
+
+  /* ---- Governance axes ---- */
+  .axis-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-block: 1.1rem; }
+  .axis-card { padding: 1.3rem 1.5rem; }
+  .axis-name { color: var(--orange); font-weight: 700; display: inline-block; margin-bottom: 0.4rem; }
+  .axis-card p { margin: 0; font-size: 0.92rem; }
+
+  .doc-section .banner { margin-block: 1.4rem; }
+
+  .doc-list { margin: 0.8rem 0 0 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+  .doc-list li { color: var(--ink-70); font-size: 0.97rem; }
+
+  /* ---- FAQ ---- */
+  .faq-list { display: flex; flex-direction: column; gap: 1rem; margin-block: 1.1rem; }
+  .faq-card { padding: 1.4rem 1.7rem; }
+  .faq-card h3 { font-size: 1.02rem; margin: 0 0 0.4rem; }
+  .faq-card p { margin: 0; font-size: 0.93rem; }
+  .faq-more { margin-top: 1.6rem; }
+
+  @media (max-width: 900px) {
+    .docs-layout { grid-template-columns: 1fr; gap: 1.5rem; }
+    .docs-nav {
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 1.2rem;
+    }
+    .docs-nav-title { width: 100%; }
+    .docs-nav-link {
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--radius-full);
+      padding: 0.3rem 0.85rem;
+      background: var(--white);
+    }
+    .docs-nav-link.active { border-color: var(--orange); }
+    .axis-cards { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+  // Scrollspy: light up the side-nav link for the section in view.
+  function spy() {
+    const links = document.querySelectorAll('.docs-nav-link');
+    const sections = document.querySelectorAll('.doc-section');
+    if (!links.length || !sections.length) return;
+
+    const byId = new Map();
+    links.forEach((l) => byId.set(l.getAttribute('data-spy'), l));
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (!e.isIntersecting) return;
+          links.forEach((l) => l.classList.remove('active'));
+          byId.get(e.target.id)?.classList.add('active');
+        });
+      },
+      { rootMargin: '-15% 0px -70% 0px' }
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+  document.addEventListener('astro:page-load', spy);
+</script>

@@ -1,0 +1,387 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import DotMap from '../components/DotMap.astro';
+
+const rejected = [
+  { icon: 'folder', title: 'Reorganise everything', desc: 'Months of restructuring before the first useful answer.' },
+  { icon: 'cloud', title: 'Migrate into a new platform', desc: 'Move the estate to make it legible — and maintain two copies of reality.' },
+  { icon: 'alert', title: 'Grant broad filesystem access', desc: 'Hand an agent everything and hope for the best.' },
+];
+
+const pipeline = [
+  { title: 'Filesystem', desc: 'Files live in place. Nothing moves.' },
+  { title: 'Local catalogue', desc: 'Metadata and structure only — not content.' },
+  { title: 'Permissions', desc: 'You define what each agent may see.' },
+  { title: 'Agent view', desc: 'Only what is allowed. Nothing more.' },
+];
+
+const needs = [
+  'What exists',
+  'Where it lives',
+  'What is relevant',
+  'What they are permitted to access',
+  'What is worth opening next',
+];
+---
+
+<Base
+  title="shelfmark — a governed map of what exists"
+  description="A local, privacy-first document catalogue + MCP server. Shelfmark hands AI agents structure, not content — you decide what they see."
+>
+  <!-- ============ HERO ============ -->
+  <section class="panel panel--hero home-hero">
+    <div class="conduit" aria-hidden="true">
+      <div class="conduit-bg"></div>
+      <div class="conduit-fill"></div>
+    </div>
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow" data-hero-fade>A Dankaro product</p>
+        <h1 class="hero-title">
+          <span class="hero-line"><span>A governed <span class="serif-italic">map</span></span></span>
+          <span class="hero-line"><span>of what exists.</span></span>
+        </h1>
+        <p class="section-lede" data-hero-fade>
+          Shelfmark catalogues your document estate where it lives — local
+          drives, iCloud, OneDrive, Nextcloud, network shares — and hands AI
+          agents <strong>structure, not content</strong>. You decide what they see.
+        </p>
+        <div class="hero-actions" data-hero-fade>
+          <a href="/get-started" class="btn btn-primary">Get started</a>
+          <a href="/model" class="btn btn-secondary">How it works</a>
+        </div>
+        <div class="chip" data-hero-fade>
+          <span>uv tool install shelfmark</span>
+          <button class="chip-copy" data-copy="uv tool install shelfmark">Copy</button>
+        </div>
+      </div>
+
+      <div class="hero-visual" data-hero-fade>
+        <DotMap />
+        <div class="readout">
+          <div><span class="r-prompt">›</span> corpus_stats()</div>
+          <div>40,000 files · 65 GB · <span class="r-hi">indexed in under 2 s</span></div>
+          <div class="r-dim">governed view · structure only · no content stored</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ THE PROBLEM ============ -->
+  <section class="panel">
+    <div class="container">
+      <p class="eyebrow" data-reveal>The problem</p>
+      <h2 class="section-title" data-reveal>Enterprise knowledge already exists.</h2>
+      <p class="section-lede" data-reveal>
+        The real problem is <strong>access</strong>, <strong>privacy</strong>, and
+        <strong>context</strong>. The default responses all make it worse:
+      </p>
+
+      <div class="grid-3 rejected-grid" data-reveal="group">
+        {rejected.map((r) => (
+          <div class="card rejected-card">
+            <div class="rejected-head">
+              <div class="card-icon"><Icon name={r.icon} /></div>
+              <Icon name="x-circle" class="rejected-x" />
+            </div>
+            <h3>{r.title}</h3>
+            <p>{r.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <div class="banner banner--rule" data-reveal>
+        <p>
+          Messy environments are not an edge case.
+          <em> They are the reality.</em>
+        </p>
+      </div>
+
+      <a href="/problem" class="text-link panel-link" data-reveal>
+        Read the problem <Icon name="arrow" />
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ THE MODEL ============ -->
+  <section class="panel">
+    <div class="container">
+      <p class="eyebrow" data-reveal>The model</p>
+      <h2 class="section-title" data-reveal>
+        Agents understand the estate — without full access to the data.
+      </h2>
+
+      <div class="pipeline" data-reveal="group">
+        {pipeline.map((step, i) => (
+          <>
+            <div class="card pipe-card">
+              <span class="pipe-step mono">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{step.title}</h3>
+              <p>{step.desc}</p>
+            </div>
+            {i < pipeline.length - 1 && (
+              <Icon name="arrow" class="pipe-arrow" />
+            )}
+          </>
+        ))}
+      </div>
+
+      <div class="banner" data-reveal>
+        <div class="banner-icon"><Icon name="layers" /></div>
+        <p>
+          Shelfmark indexes file metadata and structure only,
+          <em> not document bodies.</em>
+        </p>
+      </div>
+
+      <a href="/model" class="text-link panel-link" data-reveal>
+        See the model <Icon name="arrow" />
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ COVERAGE STRIP ============ -->
+  <section class="panel panel--short">
+    <div class="container">
+      <p class="eyebrow" data-reveal>Works where your data lives</p>
+      <h2 class="section-title" data-reveal>No migration. No restructuring.</h2>
+      <div class="coverage-row" data-reveal="group">
+        <span class="coverage-chip"><Icon name="cloud" /> iCloud Drive</span>
+        <span class="coverage-chip"><Icon name="cloud" /> OneDrive</span>
+        <span class="coverage-chip"><Icon name="sync" /> Nextcloud</span>
+        <span class="coverage-chip"><Icon name="drive" /> Local &amp; external disks</span>
+        <span class="coverage-chip"><Icon name="network" /> Network shares</span>
+      </div>
+      <a href="/coverage" class="text-link panel-link" data-reveal>
+        See the coverage <Icon name="arrow" />
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ FILM ============ -->
+  <section class="panel panel--short">
+    <div class="container">
+      <p class="eyebrow" data-reveal>Nothing moves</p>
+      <h2 class="section-title" data-reveal>The estate becomes visible. In place.</h2>
+      <div class="film" data-reveal>
+        <video
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          poster="/media/estate-scan-poster.jpg"
+          width="1920"
+          height="1080"
+          aria-label="A slow camera glide over an enterprise file estate rendered as geometric blocks; an orange scan plane passes and a grid of index nodes assembles above the files."
+        >
+          <source src="/media/estate-scan.mp4" type="video/mp4" />
+        </video>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PROOF ============ -->
+  <section class="panel">
+    <div class="container">
+      <p class="eyebrow" data-reveal>Proof points</p>
+      <h2 class="section-title" data-reveal>Fast to index. Cheap to query.</h2>
+
+      <div class="grid-3 stat-grid" data-reveal="group">
+        <div class="card stat-card">
+          <span class="stat-num"><span class="mono" data-count-to="40000">0</span></span>
+          <span class="stat-unit">files / 65 GB</span>
+          <p class="stat-note text-orange">Indexed in under 2 seconds</p>
+        </div>
+        <div class="card stat-card">
+          <span class="stat-num"><span class="mono" data-count-to="74">0</span> GB</span>
+          <span class="stat-unit">OneDrive corpus</span>
+          <p class="stat-note text-orange">Validated on Windows ARM64</p>
+        </div>
+        <div class="card stat-card">
+          <span class="stat-num"><span class="mono">500–1,000</span></span>
+          <span class="stat-unit">tokens</span>
+          <p class="stat-note text-orange">Typical discovery context footprint</p>
+        </div>
+      </div>
+
+      <a href="/proof" class="text-link panel-link" data-reveal>
+        See the numbers <Icon name="arrow" />
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ WHY + CTA ============ -->
+  <section class="panel why-panel">
+    <div class="container">
+      <p class="eyebrow" data-reveal>Why it matters</p>
+      <h2 class="section-title why-title" data-reveal>
+        See the estate. Respect the boundaries.
+        Open only <span class="serif-italic">what matters</span>.
+      </h2>
+      <p class="section-lede" data-reveal>
+        Agents don't need everything. They need to know the minimum required to
+        act safely and well — before consuming expensive context windows or
+        touching sensitive files.
+      </p>
+
+      <ul class="needs-list" data-reveal="group">
+        {needs.map((n) => (
+          <li><Icon name="check-circle" class="needs-check" /> {n}</li>
+        ))}
+      </ul>
+
+      <div class="cta-row" data-reveal>
+        <a href="/get-started" class="btn btn-primary">Get started</a>
+        <a href="https://pypi.org/project/shelfmark/" rel="noopener" class="btn btn-secondary">
+          pypi.org/project/shelfmark ↗
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* ---- Hero ---- */
+  .home-hero { padding-top: 6rem; }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 4rem;
+    align-items: center;
+  }
+  .hero-title {
+    margin-top: 1.3rem;
+    font-size: clamp(2.7rem, 6vw, 4.6rem);
+  }
+  .hero-line { display: block; overflow: hidden; padding-block: 0.06em; }
+  .hero-line > span { display: block; will-change: transform; }
+  .hero-actions { display: flex; gap: 0.9rem; margin-top: 2rem; flex-wrap: wrap; }
+  .hero-copy .chip { margin-top: 1.4rem; }
+  .hero-visual { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* ---- Conduit line (home only) ---- */
+  .conduit {
+    position: absolute;
+    top: 92vh;
+    bottom: 0;
+    left: calc(50% - var(--max-width) / 2 + 0.25rem);
+    width: 2px;
+    pointer-events: none;
+  }
+  .conduit-bg {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(to bottom, var(--hairline-strong) 55%, transparent 55%);
+    background-size: 2px 12px;
+  }
+  .conduit-fill {
+    position: absolute; top: 0; left: 0; width: 2px; height: 0%;
+    background: var(--orange);
+    box-shadow: 0 0 10px var(--orange-glow);
+    border-radius: 2px;
+  }
+  @media (max-width: 1300px) { .conduit { display: none; } }
+
+  /* Section flourishes */
+  .panel-link { margin-top: 2.2rem; }
+  .rejected-grid, .stat-grid, .pipeline, .coverage-row { margin-top: 3rem; }
+  .banner { margin-top: 2.5rem; }
+
+  /* ---- Rejected cards ---- */
+  .rejected-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .rejected-head :global(.rejected-x) { width: 1.4rem; height: 1.4rem; color: var(--gray); }
+
+  /* ---- Pipeline ---- */
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    gap: 0.9rem;
+    align-items: center;
+  }
+  .pipe-card { padding: 1.6rem; height: 100%; }
+  .pipe-step {
+    font-size: 0.72rem;
+    color: var(--orange);
+    display: block;
+    margin-bottom: 0.7rem;
+  }
+  .pipe-card h3 { font-size: 1.05rem; }
+  .pipe-card p { font-size: 0.85rem; }
+  .pipeline :global(.pipe-arrow) { width: 1.3rem; height: 1.3rem; color: var(--orange); flex: none; }
+  @media (max-width: 900px) {
+    .pipeline { grid-template-columns: 1fr; }
+    .pipeline :global(.pipe-arrow) { transform: rotate(90deg); margin-inline: auto; }
+  }
+
+  /* ---- Film ---- */
+  .film { margin-top: 2.6rem; }
+  .film video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    background: var(--canvas-light);
+  }
+
+  /* ---- Coverage chips ---- */
+  .coverage-row { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+  .coverage-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: var(--white);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-full);
+    padding: 0.65rem 1.2rem;
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+  .coverage-chip :global(svg) { width: 1.1rem; height: 1.1rem; color: var(--orange); }
+
+  /* ---- Stats ---- */
+  .stat-card { display: flex; flex-direction: column; }
+  .stat-num {
+    font-size: clamp(2.2rem, 3.6vw, 3rem);
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.1;
+  }
+  .stat-unit { font-weight: 700; color: var(--ink-70); margin-top: 0.2rem; }
+  .stat-note { margin-top: 1rem; font-weight: 700; font-size: 0.9rem; }
+
+  /* ---- Why ---- */
+  .why-title { max-width: 24ch; }
+  .needs-list {
+    list-style: none;
+    margin-top: 2.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.9rem;
+    max-width: 820px;
+  }
+  .needs-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: var(--white);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1.1rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  .needs-list li :global(.needs-check) { width: 1.25rem; height: 1.25rem; color: var(--orange); flex: none; }
+  .cta-row { display: flex; gap: 0.9rem; margin-top: 2.6rem; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .home-hero { padding-top: 7rem; }
+  }
+</style>

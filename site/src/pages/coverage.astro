@@ -1,0 +1,112 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHero from '../components/PageHero.astro';
+import NextChapter from '../components/NextChapter.astro';
+import Icon from '../components/Icon.astro';
+
+const clouds = [
+  {
+    icon: 'cloud',
+    title: 'iCloud Drive on macOS',
+    sub: 'File-provider synced stubs',
+  },
+  {
+    icon: 'cloud',
+    title: 'OneDrive',
+    sub: 'Online-only and placeholder files',
+  },
+  {
+    icon: 'sync',
+    title: 'Nextcloud',
+    sub: 'WebDAV or FUSE-based structures',
+  },
+];
+const local = [
+  { icon: 'drive', title: 'Local disks & external drives' },
+  { icon: 'network', title: 'Enterprise network shares' },
+];
+---
+
+<Base
+  title="Coverage — shelfmark"
+  description="Shelfmark works across the storage reality enterprises already have: iCloud, OneDrive, Nextcloud, local disks, and network shares — data stays in place."
+>
+  <PageHero
+    eyebrow="Works where your data lives"
+    title={[
+      'The storage reality',
+      'enterprises <span class="serif-italic">already</span> have.',
+    ]}
+    lede="Shelfmark reads the filesystem layer and mounted stubs directly, so the data can <strong>remain in place</strong>."
+    image="/media/coverage-topology.webp"
+    imageAlt="Network topology diagram: storage endpoints — disks, NAS racks, cloud nodes, a file-share tower — each holding its data blocks in place, with thin index lines routing to one compact local catalogue node marked in orange."
+    imageWidth={1400}
+    imageHeight={1045}
+  />
+
+  <section class="panel">
+    <div class="container">
+      <div class="grid-3 cloud-grid" data-reveal="group">
+        {clouds.map((c) => (
+          <div class="card cloud-card">
+            <div class="card-icon"><Icon name={c.icon} /></div>
+            <h3>{c.title}</h3>
+            <p class="cloud-sub">{c.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div class="grid-2 local-grid" data-reveal="group">
+        {local.map((l) => (
+          <div class="card local-card">
+            <div class="card-icon"><Icon name={l.icon} /></div>
+            <h3>{l.title}</h3>
+          </div>
+        ))}
+      </div>
+
+      <div class="banner" data-reveal>
+        <div class="banner-icon"><Icon name="shield" /></div>
+        <p>
+          Shelfmark <em>does not require</em> data to move in order to be understood.
+          <small>
+            In all cases, it builds a structural map of what exists without
+            pulling content into memory or storage.
+          </small>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel panel--short">
+    <div class="container">
+      <h2 class="closing-line" data-reveal>
+        Understand first. Move later. <span class="text-orange">Or never.</span>
+      </h2>
+    </div>
+  </section>
+
+  <NextChapter href="/proof" label="Proof points" />
+</Base>
+
+<style>
+  .cloud-card { text-align: left; }
+  .cloud-sub {
+    display: inline-block;
+    margin-top: 0.3rem;
+    padding-top: 0.6rem;
+    border-top: 2px solid var(--orange);
+    font-weight: 600;
+  }
+  .local-grid { margin-top: 1.25rem; }
+  .local-card {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 1.6rem 2rem;
+  }
+  .local-card .card-icon { margin-bottom: 0; flex: none; }
+  .local-card h3 { font-size: 1.1rem; }
+  .banner { margin-top: 2.5rem; }
+  .closing-line { font-size: clamp(1.8rem, 4vw, 3rem); }
+</style>

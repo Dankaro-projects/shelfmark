@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Not in the catalogue — shelfmark"
+  description="This page is not in the catalogue."
+>
+  <section class="panel panel--hero">
+    <div class="container">
+      <div class="readout notfound-readout" data-hero-fade>
+        <div><span class="r-prompt">›</span> get_file("{Astro.url.pathname}")</div>
+        <div class="r-dim">not in the catalogue</div>
+      </div>
+      <h1 class="notfound-title">
+        <span class="hero-line"><span>This page doesn't <span class="serif-italic">exist</span>.</span></span>
+      </h1>
+      <p class="section-lede" data-hero-fade>
+        Which is exactly the kind of thing a catalogue should tell you plainly.
+      </p>
+      <a href="/" class="btn btn-primary notfound-btn" data-hero-fade>Back to the map</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .notfound-readout { max-width: 480px; }
+  .notfound-title { margin-top: 2rem; font-size: clamp(2.4rem, 5.5vw, 4rem); }
+  .hero-line { display: block; overflow: hidden; padding-block: 0.06em; }
+  .hero-line > span { display: block; }
+  .notfound-btn { margin-top: 2rem; }
+</style>
