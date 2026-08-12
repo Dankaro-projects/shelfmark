@@ -10,7 +10,8 @@ interface Props {
   showFooter?: boolean;
 }
 const { title, description, showFooter = true } = Astro.props;
-const ogImage = new URL('/media/og.jpg', Astro.site);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const ogImage = new URL(`${base}/media/og.jpg`, Astro.site);
 const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ''), Astro.site);
 ---
 
@@ -21,8 +22,8 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ''), Astro.site)
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <link rel="apple-touch-icon" sizes="180x180" href={`${base}/apple-touch-icon.png`} />
     <link rel="canonical" href={canonical} />
     <meta name="theme-color" content="#ede9e2" />
 

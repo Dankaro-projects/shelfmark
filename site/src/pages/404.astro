@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
 <Base
@@ -18,7 +19,7 @@ import Base from '../layouts/Base.astro';
       <p class="section-lede" data-hero-fade>
         Which is exactly the kind of thing a catalogue should tell you plainly.
       </p>
-      <a href="/" class="btn btn-primary notfound-btn" data-hero-fade>Back to the map</a>
+      <a href={`${base}/`} class="btn btn-primary notfound-btn" data-hero-fade>Back to the map</a>
     </div>
   </section>
 </Base>

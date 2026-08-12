@@ -2,11 +2,12 @@
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const storage = [
   { icon: 'drive', label: 'Local drives' },
-  { logo: '/media/icloud.svg', label: 'iCloud' },
-  { logo: '/media/onedrive.svg', label: 'OneDrive' },
-  { logo: '/media/nextcloud.svg', label: 'Nextcloud' },
+  { logo: `${base}/media/icloud.svg`, label: 'iCloud' },
+  { logo: `${base}/media/onedrive.svg`, label: 'OneDrive' },
+  { logo: `${base}/media/nextcloud.svg`, label: 'Nextcloud' },
   { icon: 'network', label: 'Network shares' },
 ];
 
@@ -55,8 +56,8 @@ const guarantees = [
             every document where it is.
           </p>
           <div class="hero-actions" data-hero-fade>
-            <a href="/docs#quickstart" class="btn btn-primary">Get started</a>
-            <a href="/docs" class="btn btn-secondary">Read the docs</a>
+            <a href={`${base}/docs/#quickstart`} class="btn btn-primary">Get started</a>
+            <a href={`${base}/docs/`} class="btn btn-secondary">Read the docs</a>
           </div>
           <div class="chip" data-hero-fade>
             <span>uv tool install shelfmark</span>
@@ -71,12 +72,12 @@ const guarantees = [
             loop
             playsinline
             preload="metadata"
-            poster="/media/model-layers.webp"
+            poster={`${base}/media/model-layers.webp`}
             width="1440"
             height="1080"
             aria-label="A filesystem, local catalogue, permission layer, and governed agent view assembling above one another."
           >
-            <source src="/media/model-layers.mp4" type="video/mp4" />
+            <source src={`${base}/media/model-layers.mp4`} type="video/mp4" />
           </video>
           <div class="film-caption mono">
             <span>filesystem</span>
@@ -93,7 +94,7 @@ const guarantees = [
       <div class="container story-grid">
         <div class="story-visual" data-reveal>
           <img
-            src="/media/problem-estate.webp"
+            src={`${base}/media/problem-estate.webp`}
             alt="A complex document estate distributed across computers, storage systems, and nested folders."
             width="1400"
             height="1045"
@@ -136,12 +137,12 @@ const guarantees = [
             loop
             playsinline
             preload="metadata"
-            poster="/media/estate-scan-poster.jpg"
+            poster={`${base}/media/estate-scan-poster.jpg`}
             width="1920"
             height="1080"
             aria-label="An enterprise file estate becomes a structured map as an orange scan passes over it."
           >
-            <source src="/media/estate-scan.mp4" type="video/mp4" />
+            <source src={`${base}/media/estate-scan.mp4`} type="video/mp4" />
           </video>
         </div>
         <div class="product-copy">
@@ -184,13 +185,13 @@ const guarantees = [
               <li><Icon name="check-circle" /> {item}</li>
             ))}
           </ul>
-          <a href="/docs#governance" class="text-link" data-reveal>
+          <a href={`${base}/docs/#governance`} class="text-link" data-reveal>
             Read the governance model <Icon name="arrow" />
           </a>
         </div>
         <div class="story-visual" data-reveal>
           <img
-            src="/media/coverage-topology.webp"
+            src={`${base}/media/coverage-topology.webp`}
             alt="Storage systems remain in place while structural index lines converge on one local catalogue."
             width="1400"
             height="1045"
@@ -237,7 +238,7 @@ const guarantees = [
             <span>Python 3.11+. MIT licensed. Local by design.</span>
           </div>
           <div class="closing-actions">
-            <a href="/docs#quickstart" class="btn btn-primary">Install Shelfmark</a>
+            <a href={`${base}/docs/#quickstart`} class="btn btn-primary">Install Shelfmark</a>
             <a href="https://github.com/Dankaro-projects/shelfmark" rel="noopener" class="btn btn-secondary">GitHub ↗</a>
           </div>
         </div>

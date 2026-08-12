@@ -1,5 +1,6 @@
 ---
 import Logo from './Logo.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const year = new Date().getFullYear();
 ---
 
@@ -7,7 +8,7 @@ const year = new Date().getFullYear();
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <a href="/" class="footer-logo" aria-label="shelfmark home">
+        <a href={`${base}/`} class="footer-logo" aria-label="shelfmark home">
           <Logo size={28} />
           <span>shelfmark</span>
         </a>
@@ -21,16 +22,16 @@ const year = new Date().getFullYear();
 
       <nav class="footer-col" aria-label="Product">
         <h4>Product</h4>
-        <a href="/#problem">The reality</a>
-        <a href="/#product">How it works</a>
-        <a href="/#governance">Governance</a>
-        <a href="/#proof">Proof points</a>
+        <a href={`${base}/#problem`}>The reality</a>
+        <a href={`${base}/#product`}>How it works</a>
+        <a href={`${base}/#governance`}>Governance</a>
+        <a href={`${base}/#proof`}>Proof points</a>
       </nav>
 
       <nav class="footer-col" aria-label="Install">
         <h4>Install</h4>
-        <a href="/docs#quickstart">Get started</a>
-        <a href="/docs">Documentation</a>
+        <a href={`${base}/docs/#quickstart`}>Get started</a>
+        <a href={`${base}/docs/`}>Documentation</a>
         <a href="https://pypi.org/project/shelfmark/" rel="noopener">PyPI ↗</a>
       </nav>
     </div>

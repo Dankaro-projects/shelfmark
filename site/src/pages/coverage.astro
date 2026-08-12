@@ -1,3 +1,4 @@
 ---
-return Astro.redirect('/#product', 301);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+return Astro.redirect(`${base}/#product`, 301);
 ---

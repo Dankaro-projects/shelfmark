@@ -1,19 +1,20 @@
 ---
 import Logo from './Logo.astro';
 
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
 ---
 
 <header class="site-header">
   <div class="header-pill">
-    <a href="/" class="brand" aria-label="shelfmark home">
+    <a href={`${base}/`} class="brand" aria-label="shelfmark home">
       <Logo size={24} class="brand-mark" />
       <span class="brand-name">shelfmark</span>
       <span class="brand-by">Dankaro</span>
     </a>
 
     <nav class="nav" aria-label="Main">
-      <a href="/docs" class:list={['nav-link', { active: path === '/docs' }]}>Docs</a>
+      <a href={`${base}/docs/`} class:list={['nav-link', { active: path === `${base}/docs` }]}>Docs</a>
     </nav>
   </div>
 </header>
