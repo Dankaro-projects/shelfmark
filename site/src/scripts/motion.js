@@ -23,7 +23,7 @@ const reducedMotion = () =>
 function setupLenis() {
   if (reducedMotion()) return;
   // The home story uses native snap scrolling instead of a second scroll engine.
-  if (document.querySelector('.home-story')) return;
+  if (document.querySelector('.home-story, .docs-page')) return;
   lenis = new Lenis({ duration: 1.15, touchMultiplier: 1.6 });
   lenis.on('scroll', ScrollTrigger.update);
   tickerFn = (t) => lenis.raf(t * 1000);

@@ -116,6 +116,7 @@ const faq = [
 <Base
   title="Documentation | shelfmark"
   description="Install, configure, govern, and keep current: the complete technical instructions for shelfmark, from uv tool install to Claude Code hooks."
+  showFooter={false}
 >
   <div class="container docs-page">
     <header class="docs-header">
@@ -128,7 +129,6 @@ const faq = [
         </p>
       </div>
       <div class="docs-header-actions">
-        <a href="#quickstart" class="btn btn-primary">Quickstart</a>
         <a href="https://github.com/Dankaro-projects/shelfmark#readme" rel="noopener" class="btn btn-secondary">GitHub ↗</a>
       </div>
     </header>
@@ -459,7 +459,13 @@ shelfmark hash --limit 2000      # chip away at it</pre>
 </Base>
 
 <style>
-  .docs-page { padding-top: 8.5rem; }
+  .docs-page {
+    height: 100svh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 7.5rem;
+  }
   .docs-header {
     display: flex;
     align-items: end;
@@ -480,21 +486,22 @@ shelfmark hash --limit 2000      # chip away at it</pre>
   }
   .docs-header-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
   .docs-layout {
+    min-height: 0;
+    flex: 1;
     display: grid;
     grid-template-columns: 220px 1fr;
     gap: 4rem;
-    align-items: start;
+    align-items: stretch;
+    overflow: hidden;
     padding-top: 2rem;
-    padding-bottom: 6rem;
   }
 
   /* ---- Side nav ---- */
   .docs-nav {
-    position: sticky;
-    top: 6.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
+    padding-bottom: 2rem;
   }
   .docs-nav-title {
     font-size: 0.68rem;
@@ -520,8 +527,16 @@ shelfmark hash --limit 2000      # chip away at it</pre>
   }
 
   /* ---- Body ---- */
-  .docs-body { min-width: 0; max-width: 72ch; }
-  .doc-section { padding-block: 2.6rem; scroll-margin-top: 6.5rem; }
+  .docs-body {
+    min-width: 0;
+    max-width: 72ch;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-right: 1rem;
+    padding-bottom: 5rem;
+  }
+  .doc-section { padding-block: 2.6rem; scroll-margin-top: 1rem; }
   .doc-section + .doc-section { border-top: 1px solid var(--hairline); }
   .doc-section h2 {
     font-size: 1.7rem;
@@ -598,17 +613,37 @@ shelfmark hash --limit 2000      # chip away at it</pre>
   .faq-card p { margin: 0; font-size: 0.93rem; }
   .faq-more { margin-top: 1.6rem; }
 
+  @media (min-width: 901px) {
+    :global(body) { overflow: hidden; }
+    :global(#main) { height: 100svh; }
+  }
+
   @media (max-width: 900px) {
-    .docs-page { padding-top: 7rem; }
+    .docs-page {
+      height: auto;
+      display: block;
+      overflow: visible;
+      padding-top: 7rem;
+    }
     .docs-header { align-items: flex-start; flex-direction: column; }
-    .docs-layout { grid-template-columns: 1fr; gap: 1.5rem; }
+    .docs-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      overflow: visible;
+      padding-bottom: 5rem;
+    }
     .docs-nav {
-      position: static;
       flex-direction: row;
       flex-wrap: wrap;
       gap: 0.4rem;
       border-bottom: 1px solid var(--hairline);
       padding-bottom: 1.2rem;
+    }
+    .docs-body {
+      max-width: none;
+      overflow: visible;
+      padding: 0;
     }
     .docs-nav-title { width: 100%; }
     .docs-nav-link {
@@ -632,6 +667,10 @@ shelfmark hash --limit 2000      # chip away at it</pre>
     const byId = new Map();
     links.forEach((l) => byId.set(l.getAttribute('data-spy'), l));
 
+    const body = document.querySelector('.docs-body');
+    const root = window.matchMedia('(min-width: 901px)').matches && body instanceof HTMLElement
+      ? body
+      : null;
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
@@ -640,7 +679,7 @@ shelfmark hash --limit 2000      # chip away at it</pre>
           byId.get(e.target.id)?.classList.add('active');
         });
       },
-      { rootMargin: '-15% 0px -70% 0px' }
+      { root, rootMargin: '-15% 0px -70% 0px' }
     );
     sections.forEach((s) => io.observe(s));
   }

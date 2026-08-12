@@ -7,8 +7,9 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description: string;
+  showFooter?: boolean;
 }
-const { title, description } = Astro.props;
+const { title, description, showFooter = true } = Astro.props;
 const ogImage = new URL('/media/og.jpg', Astro.site);
 const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ''), Astro.site);
 ---
@@ -53,7 +54,7 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ''), Astro.site)
     <main id="main">
       <slot />
     </main>
-    <Footer />
+    {showFooter && <Footer />}
     <script src="../scripts/motion.js"></script>
   </body>
 </html>
