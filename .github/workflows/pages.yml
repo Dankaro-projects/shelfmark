@@ -27,7 +27,7 @@ jobs:
         uses: withastro/action@v6
         with:
           path: ./site
-          package-manager: npm@latest
+          package-manager: pnpm@11.20.0
 
   deploy:
     needs: build

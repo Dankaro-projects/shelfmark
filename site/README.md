@@ -8,10 +8,10 @@ adapted from `gaptiq-ui-kit`.
 ## Run
 
 ```sh
-npm install
-npm run dev        # dev server
-npm run build      # static build → dist/
-npm run preview    # serve dist/
+pnpm install --frozen-lockfile
+pnpm dev        # dev server
+pnpm build      # static build → dist/
+pnpm preview    # serve dist/
 ```
 
 ## Structure
