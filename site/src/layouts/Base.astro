@@ -56,6 +56,56 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ''), Astro.site)
       <slot />
     </main>
     {showFooter && <Footer />}
+    <a
+      class="powered-by"
+      href="https://dankaro.com"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span class="powered-mark" aria-hidden="true"></span>
+      Powered by Dankaro
+    </a>
     <script src="../scripts/motion.js"></script>
   </body>
 </html>
+
+<style>
+  .powered-by {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.8rem;
+    color: var(--white);
+    background: rgba(17, 17, 17, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-pill);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .powered-by:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .powered-mark {
+    width: 0.55rem;
+    height: 0.55rem;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 0 0.2rem var(--accent-12);
+  }
+
+  @media (max-width: 540px) {
+    .powered-by {
+      right: 0.75rem;
+      bottom: 0.75rem;
+    }
+  }
+</style>

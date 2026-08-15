@@ -1,5 +1,5 @@
 /* shelfmark — global styles.
-   Tokens + base adapted from the gaptiq-ui-kit design system (ink/orange/beige,
+   Tokens + base adapted from the gaptiq-ui-kit design system (ink/blue/beige,
    Manrope + Instrument Serif italic accent, hairline structure, soft radii).
    Shelfmark-specific layer: the mono "instrument" readouts for paths, tool
    calls, and token counts. */
@@ -7,7 +7,7 @@
 :root {
   /* ---- Palette ---- */
   --ink: #111111;
-  --orange: #f26722;
+  --accent: #4457e6;
   --canvas: #ede9e2;
   --canvas-light: #f7f5f1;
   --white: #ffffff;
@@ -19,9 +19,9 @@
   --ink-12: rgba(17, 17, 17, 0.12);
   --ink-45: rgba(17, 17, 17, 0.45);
   --ink-70: rgba(17, 17, 17, 0.7);
-  --orange-glow: rgba(242, 103, 34, 0.45);
-  --orange-06: rgba(242, 103, 34, 0.06);
-  --orange-12: rgba(242, 103, 34, 0.12);
+  --accent-glow: rgba(68, 87, 230, 0.45);
+  --accent-06: rgba(68, 87, 230, 0.06);
+  --accent-12: rgba(68, 87, 230, 0.12);
 
   /* ---- Type ---- */
   --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -75,7 +75,7 @@ html, body {
 
 body { background: var(--canvas); }
 
-::selection { background: var(--orange); color: var(--white); }
+::selection { background: var(--accent); color: var(--white); }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--canvas); }
@@ -96,7 +96,7 @@ img, svg { max-width: 100%; display: block; }
 button { font: inherit; cursor: pointer; }
 
 :focus-visible {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -144,7 +144,7 @@ button { font: inherit; cursor: pointer; }
   font-weight: 800;
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
-  color: var(--orange);
+  color: var(--accent);
 }
 
 .section-title {
@@ -161,7 +161,7 @@ button { font: inherit; cursor: pointer; }
   max-width: 52ch;
   font-weight: 500;
 }
-.section-lede strong { color: var(--orange); font-weight: 700; }
+.section-lede strong { color: var(--accent); font-weight: 700; }
 
 /* =========================================================
    Buttons
@@ -181,9 +181,9 @@ button { font: inherit; cursor: pointer; }
 }
 .btn-primary { background: var(--ink); color: var(--white); }
 .btn-primary:hover {
-  background: var(--orange);
+  background: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(242, 103, 34, 0.35);
+  box-shadow: 0 8px 24px rgba(68, 87, 230, 0.35);
 }
 .btn-secondary {
   background: transparent;
@@ -208,7 +208,7 @@ button { font: inherit; cursor: pointer; }
 }
 .card:hover {
   transform: translateY(-4px);
-  border-color: var(--orange);
+  border-color: var(--accent);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -217,9 +217,9 @@ button { font: inherit; cursor: pointer; }
   height: 2.6rem;
   display: grid;
   place-items: center;
-  color: var(--orange);
-  border: 1.5px solid var(--orange-12);
-  background: var(--orange-06);
+  color: var(--accent);
+  border: 1.5px solid var(--accent-12);
+  background: var(--accent-06);
   border-radius: var(--radius-xs);
   margin-bottom: 1.25rem;
 }
@@ -246,9 +246,9 @@ button { font: inherit; cursor: pointer; }
   line-height: 1.7;
   overflow-x: auto;
 }
-.readout .r-prompt { color: var(--orange); }
+.readout .r-prompt { color: var(--accent); }
 .readout .r-dim { color: rgba(255, 255, 255, 0.4); }
-.readout .r-hi { color: #ffb28a; }
+.readout .r-hi { color: #aeb8ff; }
 
 .chip {
   display: inline-flex;
@@ -272,7 +272,7 @@ button { font: inherit; cursor: pointer; }
   border-radius: var(--radius-full);
   transition: var(--t-fast);
 }
-.chip .chip-copy:hover { background: var(--orange); }
+.chip .chip-copy:hover { background: var(--accent); }
 
 /* =========================================================
    Banner — the full-width statement strip (slide takeaways).
@@ -292,8 +292,8 @@ button { font: inherit; cursor: pointer; }
   height: 3rem;
   display: grid;
   place-items: center;
-  color: var(--orange);
-  border: 1.5px solid var(--orange);
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
   border-radius: 50%;
 }
 .banner-icon svg { width: 1.5rem; height: 1.5rem; }
@@ -304,7 +304,7 @@ button { font: inherit; cursor: pointer; }
   line-height: 1.35;
 }
 .banner p em,
-.banner p .accent { color: var(--orange); font-style: normal; }
+.banner p .accent { color: var(--accent); font-style: normal; }
 .banner p small {
   display: block;
   font-size: 0.9rem;
@@ -312,7 +312,7 @@ button { font: inherit; cursor: pointer; }
   color: var(--ink-70);
   margin-top: 0.4rem;
 }
-.banner--rule { border-left: 3px solid var(--orange); border-radius: var(--radius-xs); }
+.banner--rule { border-left: 3px solid var(--accent); border-radius: var(--radius-xs); }
 
 /* =========================================================
    Reveal states — armed by JS; without JS everything is visible.
@@ -360,7 +360,7 @@ html.lenis, html.lenis body { height: auto; }
   gap: 0.45rem;
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--orange);
+  color: var(--accent);
 }
 .text-link svg { width: 1rem; height: 1rem; transition: transform 0.3s var(--ease-brand); }
 .text-link:hover svg { transform: translateX(0.25rem); }
@@ -380,7 +380,7 @@ html.lenis, html.lenis body { height: auto; }
   .grid-2 { grid-template-columns: 1fr; }
 }
 
-.text-orange { color: var(--orange); }
+.text-accent { color: var(--accent); }
 .muted { color: var(--ink-70); }
 .skip-link {
   position: absolute;

@@ -84,7 +84,7 @@ const guarantees = [
             <Icon name="arrow" />
             <span>catalogue</span>
             <Icon name="arrow" />
-            <span class="text-orange">governed view</span>
+            <span class="text-accent">governed view</span>
           </div>
         </div>
       </div>
@@ -140,7 +140,7 @@ const guarantees = [
             poster={`${base}/media/estate-scan-poster.jpg`}
             width="1920"
             height="1080"
-            aria-label="An enterprise file estate becomes a structured map as an orange scan passes over it."
+            aria-label="An enterprise file estate becomes a structured map as a blue scan passes over it."
           >
             <source src={`${base}/media/estate-scan.mp4`} type="video/mp4" />
           </video>
@@ -382,11 +382,11 @@ const guarantees = [
     height: 1.35rem;
     flex: none;
   }
-  .storage-item :global(svg) { color: var(--orange); }
+  .storage-item :global(svg) { color: var(--accent); }
   .story-rule {
     margin-top: 2rem;
     padding-left: 1rem;
-    border-left: 2px solid var(--orange);
+    border-left: 2px solid var(--accent);
     font-size: 1.05rem;
     font-weight: 800;
   }
@@ -422,7 +422,7 @@ const guarantees = [
     font-size: 0.86rem;
     font-weight: 700;
   }
-  .guarantee-list :global(svg) { width: 1.1rem; color: var(--orange); flex: none; }
+  .guarantee-list :global(svg) { width: 1.1rem; color: var(--accent); flex: none; }
   .governance-grid .text-link { margin-top: 2rem; }
 
   .proof-heading {
@@ -463,7 +463,7 @@ const guarantees = [
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  .flow-label :global(svg) { width: 0.95rem; color: var(--orange); }
+  .flow-label :global(svg) { width: 0.95rem; color: var(--accent); }
   .flow-sources::after {
     content: "";
     position: absolute;
@@ -493,8 +493,8 @@ const guarantees = [
     height: 0.55rem;
     border: 2px solid var(--canvas);
     border-radius: 50%;
-    background: var(--orange);
-    box-shadow: 0 0 0.8rem rgba(255, 95, 31, 0.5);
+    background: var(--accent);
+    box-shadow: 0 0 0.8rem var(--accent-glow);
   }
   :global(.motion-ok) .flow-connector-in .flow-signal {
     animation: signal-right 2.8s var(--ease-brand) infinite;
@@ -511,12 +511,12 @@ const guarantees = [
     justify-content: center;
     flex-direction: column;
     padding: 1rem;
-    border: 1px solid var(--orange);
+    border: 1px solid var(--accent);
     border-radius: 50%;
     background: var(--ink);
     color: var(--white);
     text-align: center;
-    box-shadow: 0 0 0 0.55rem var(--orange-06), var(--shadow-card);
+    box-shadow: 0 0 0 0.55rem var(--accent-06), var(--shadow-card);
   }
   .hub-icon {
     display: grid;
@@ -525,7 +525,7 @@ const guarantees = [
     margin-bottom: 0.65rem;
     place-items: center;
     border-radius: 50%;
-    background: var(--orange);
+    background: var(--accent);
   }
   .hub-icon :global(svg) { width: 1.2rem; }
   .catalogue-hub strong { font-size: 1.05rem; }
@@ -542,7 +542,7 @@ const guarantees = [
     margin-top: 0.85rem;
     padding-top: 0.75rem;
     border-top: 1px solid var(--hairline);
-    color: var(--orange);
+    color: var(--accent);
     font-size: 0.78rem;
     font-weight: 700;
   }
@@ -566,7 +566,7 @@ const guarantees = [
   .closing-cta strong { display: block; font-size: 1.05rem; }
   .closing-cta span { display: block; margin-top: 0.2rem; color: rgba(255, 255, 255, 0.58); font-size: 0.82rem; }
   .closing-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
-  .closing-cta .btn-primary { background: var(--orange); }
+  .closing-cta .btn-primary { background: var(--accent); }
   .closing-cta .btn-primary:hover { background: var(--white); color: var(--ink); }
   .closing-cta .btn-secondary { border-color: rgba(255, 255, 255, 0.5); color: var(--white); }
   .closing-cta .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }

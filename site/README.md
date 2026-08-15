@@ -1,7 +1,7 @@
 # shelfmark — marketing site
 
 Two-page Astro site for shelfmark, built on the Dankaro slide brand
-(ink `#111` / orange `#F26722` / warm cream canvas, Manrope + one
+(ink `#111` / blue `#4457E6` / warm cream canvas, Manrope + one
 Instrument Serif italic word per headline) with tokens and conventions
 adapted from `gaptiq-ui-kit`.
 
@@ -37,7 +37,7 @@ section so existing links continue to work.
 `asset-src/` keeps the full-resolution originals (untracked — local only). Generated with the
 Higgsfield CLI (GPT Image 2 for the isometric diagrams and OG banner,
 Recraft V4.1 for the vector logo tile, Seedance 2.0 / Kling 3.0 for the two
-films), palette-locked to ink `#111` / orange `#F26722` / cream `#EDE9E2`.
+films), palette-locked to ink `#111` / blue `#4457E6` / cream `#EDE9E2`.
 To re-render a film from its still, pass the illustration as `--start-image`.
 Videos are ambient: muted, looped, paused under `prefers-reduced-motion`.
 
