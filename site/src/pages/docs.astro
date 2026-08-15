@@ -8,6 +8,7 @@ import Icon from '../components/Icon.astro';
 const sections = [
   { id: 'install', label: 'Install' },
   { id: 'quickstart', label: 'Quickstart' },
+  { id: 'codex', label: 'Codex & skills' },
   { id: 'configuration', label: 'Configuration' },
   { id: 'governance', label: 'Rights & governance' },
   { id: 'freshness', label: 'Keeping it current' },
@@ -72,6 +73,12 @@ const tools = [
   ['search_emails(query, …)', 'Full-text over an ingested .pst/.msg email archive (optional).'],
 ];
 
+const companionSkills = [
+  ['shelfmark-manage-catalogue', 'Set up, inspect, refresh, review, and diagnose the local catalogue safely.'],
+  ['shelfmark-find-context', 'Find the smallest useful set of governed documents for a task.'],
+  ['shelfmark-research-archive', 'Build provenance-first source maps and research briefs across documents and email.'],
+];
+
 const hooksJson = `{
   "hooks": {
     "SessionStart": [{"hooks": [{"type": "command",
@@ -104,7 +111,7 @@ const faq = [
   },
   {
     q: 'Which agents can use it?',
-    a: 'Any client that supports local MCP servers. Register with claude mcp add shelfmark -s user -- shelfmark-mcp, or point your client at the shelfmark-mcp command.',
+    a: 'Any client that supports local MCP servers. Codex users can install the repository plugin, which includes the MCP server and companion skills. Other clients can register shelfmark-mcp directly.',
   },
   {
     q: 'Why not a vector database?',
@@ -194,6 +201,55 @@ uv tool install "shelfmark[email]"    # both</pre>
           <code>shelfmark config</code> shows every rights rule in the order it
           is checked, with the number of files each one currently claims.
         </p>
+      </section>
+
+      <!-- ============ CODEX & SKILLS ============ -->
+      <section id="codex" class="doc-section">
+        <h2>Codex plugin &amp; companion skills</h2>
+        <p>
+          For Codex, the repository marketplace is the complete install. It
+          adds the local Shelfmark MCP server and three workflows as one
+          versioned plugin:
+        </p>
+        <div class="readout"><pre>codex plugin marketplace add Dankaro-projects/shelfmark
+codex plugin add shelfmark@shelfmark</pre></div>
+        <p>
+          Create the local catalogue once, then start a new Codex session so
+          it loads the plugin:
+        </p>
+        <div class="readout"><pre>uvx shelfmark init
+uvx shelfmark refresh</pre></div>
+        <table class="doc-table">
+          <thead><tr><th>Skill</th><th>What it adds</th></tr></thead>
+          <tbody>
+            {companionSkills.map(([k, v]) => (
+              <tr><td><code>{k}</code></td><td>{v}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <h3>Install only the skills</h3>
+        <p>
+          If Shelfmark MCP is already configured, install the workflows
+          independently with the cross-agent skills CLI. The full-depth flag
+          finds skills inside the plugin bundle:
+        </p>
+        <div class="readout"><pre>pnpm dlx skills add Dankaro-projects/shelfmark --full-depth</pre></div>
+        <p>
+          Skills-only installation does not configure the MCP server. Use the
+          Codex plugin route above for the complete setup.
+        </p>
+        <div class="banner banner--rule">
+          <p>
+            Official MCP Registry
+            <small>
+              Shelfmark is published as
+              <code>io.github.Dankaro-projects/shelfmark</code>. See the
+              <a href="https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Dankaro-projects%2Fshelfmark" rel="noopener" class="doc-link">live Registry record ↗</a>
+              or install the Python package from
+              <a href="https://pypi.org/project/shelfmark/" rel="noopener" class="doc-link">PyPI ↗</a>.
+            </small>
+          </p>
+        </div>
       </section>
 
       <!-- ============ CONFIGURATION ============ -->

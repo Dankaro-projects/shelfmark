@@ -195,6 +195,12 @@ Then create the local catalogue once with `uvx shelfmark init` followed by
 `uvx shelfmark refresh`. The plugin starts the pinned Shelfmark MCP server
 over stdio; document paths and metadata stay on the local machine.
 
+To install the three companion skills without the MCP configuration:
+
+```sh
+pnpm dlx skills add Dankaro-projects/shelfmark --full-depth
+```
+
 Email ingestion is optional, and the extra you want depends on the format
 you have. `.msg` resolves to wheels everywhere; `.pst` needs
 `libpff-python`, which publishes no wheels and compiles from C source, so
