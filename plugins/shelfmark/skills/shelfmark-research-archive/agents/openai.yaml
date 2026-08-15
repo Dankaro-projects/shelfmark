@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Shelfmark Archive"
+  short_description: "Build a sourced brief from a Shelfmark archive"
+  default_prompt: "Use $shelfmark-research-archive to research this topic across my local archive with provenance."

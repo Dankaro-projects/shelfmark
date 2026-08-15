@@ -466,14 +466,8 @@ def cmd_doctor(args) -> int:
 
 def cmd_serve(args) -> int:
     from . import server
-    if args.config:
-        server._CFG = config_mod.load(args.config)
-    server.cfg()  # fail early on bad config
-    if args.selftest:
-        server.selftest()
-        return 0
-    server.mcp.run()
-    return 0
+    return server.run(_load(args), do_selftest=args.selftest,
+                      no_auto_refresh=args.no_auto_refresh)
 
 
 def cmd_map(args) -> int:
@@ -736,6 +730,8 @@ def main(argv=None) -> None:
     p = sub.add_parser("serve", help="run the MCP server (stdio)")
     p.add_argument("--selftest", action="store_true",
                    help="exercise every tool once and exit")
+    p.add_argument("--no-auto-refresh", action="store_true",
+                   help="do not keep the index current in the background")
     p.set_defaults(fn=cmd_serve)
 
     p = sub.add_parser("map",

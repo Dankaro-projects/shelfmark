@@ -1,0 +1,4 @@
+interface:
+  display_name: "Find Shelfmark Context"
+  short_description: "Find governed local documents with Shelfmark"
+  default_prompt: "Use $shelfmark-find-context to find the safest relevant local documents for this task."

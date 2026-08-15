@@ -181,6 +181,20 @@ Python ≥ 3.11. macOS, Linux and Windows — the full suite runs on all three
 in CI, including the Windows-specific behaviours (OneDrive placeholder
 detection, junction refusal at the root boundary).
 
+### Codex plugin
+
+Install the MCP server and its catalogue-management, context-finding, and
+archive-research skills as one versioned plugin:
+
+```sh
+codex plugin marketplace add Dankaro-projects/shelfmark
+codex plugin add shelfmark@shelfmark
+```
+
+Then create the local catalogue once with `uvx shelfmark init` followed by
+`uvx shelfmark refresh`. The plugin starts the pinned Shelfmark MCP server
+over stdio; document paths and metadata stay on the local machine.
+
 Email ingestion is optional, and the extra you want depends on the format
 you have. `.msg` resolves to wheels everywhere; `.pst` needs
 `libpff-python`, which publishes no wheels and compiles from C source, so

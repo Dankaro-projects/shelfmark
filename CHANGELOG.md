@@ -2,6 +2,21 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.4.9 — 2026-08-15
+
+### Fixed
+- **The official MCP Registry entry now starts the MCP server.** Published
+  package metadata now passes the required `serve` subcommand to `uvx`;
+  previously, Registry clients launched the bare CLI and received its
+  missing-subcommand error. A regression test and release-wheel smoke check
+  keep the Registry command aligned with the installed console script.
+
+### Added
+- **Installable Codex plugin with three companion skills.** The repository now
+  includes catalogue setup and maintenance, governed context discovery, and
+  archive research workflows alongside a pinned Shelfmark MCP server. A
+  repository marketplace makes the bundle installable as one plugin.
+
 ## 0.4.8 — 2026-08-11
 
 ### Fixed

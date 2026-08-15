@@ -1,0 +1,29 @@
+{
+  "name": "shelfmark",
+  "version": "0.4.9",
+  "description": "Governed discovery across a local Shelfmark document catalogue.",
+  "author": {
+    "name": "Dankaro",
+    "url": "https://github.com/Dankaro-projects"
+  },
+  "homepage": "https://dankaro-projects.github.io/shelfmark/",
+  "repository": "https://github.com/Dankaro-projects/shelfmark",
+  "license": "MIT",
+  "keywords": ["mcp", "documents", "local-first", "search", "governance"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Shelfmark",
+    "shortDescription": "Find governed context in local documents.",
+    "longDescription": "Set up and maintain Shelfmark, find governed local documents, and research an archive with explicit provenance and sharing boundaries.",
+    "developerName": "Dankaro",
+    "category": "Productivity",
+    "capabilities": ["Local document discovery", "Catalogue maintenance", "Archive research"],
+    "websiteURL": "https://dankaro-projects.github.io/shelfmark/",
+    "defaultPrompt": [
+      "Find the safest relevant local documents for this task.",
+      "Check whether my Shelfmark catalogue is healthy and current.",
+      "Build a provenance-first source map for this topic from my archive."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

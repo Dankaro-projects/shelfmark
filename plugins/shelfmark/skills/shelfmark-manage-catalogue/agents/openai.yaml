@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Shelfmark Catalogue"
+  short_description: "Set up and safely maintain a Shelfmark catalogue"
+  default_prompt: "Use $shelfmark-manage-catalogue to set up or repair my local document catalogue."

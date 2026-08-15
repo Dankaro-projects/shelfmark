@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "shelfmark": {
+      "command": "uvx",
+      "args": ["--from", "shelfmark==0.4.9", "shelfmark", "serve"]
+    }
+  }
+}

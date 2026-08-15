@@ -58,6 +58,7 @@ jobs:
           uv venv /tmp/check
           uv pip install --python /tmp/check/bin/python dist/*.whl
           /tmp/check/bin/shelfmark --version
+          /tmp/check/bin/shelfmark serve --help
           /tmp/check/bin/python -c "import shelfmark.server, shelfmark.cli"
 
       - uses: actions/upload-artifact@v4

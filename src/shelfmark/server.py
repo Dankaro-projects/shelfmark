@@ -1020,16 +1020,25 @@ def main() -> None:
     except config_mod.ConfigError as exc:
         print(f"shelfmark-mcp: {exc}", file=sys.stderr)
         raise SystemExit(2)
+    raise SystemExit(run(c, do_selftest=a.selftest,
+                         no_auto_refresh=a.no_auto_refresh))
+
+
+def run(c: Config, *, do_selftest: bool = False,
+        no_auto_refresh: bool = False) -> int:
+    """Run the stdio server for both installed command entry points."""
+    global _CFG
+    _CFG = c
     if not c.db.exists():
         print(f"shelfmark-mcp: no catalogue at {c.db} — run "
               f"`shelfmark refresh` first.", file=sys.stderr)
-        raise SystemExit(2)
-    if a.selftest:
+        return 2
+    if do_selftest:
         selftest()
-        return
+        return 0
 
     stop = threading.Event()
-    if not a.no_auto_refresh:
+    if not no_auto_refresh:
         # Daemon: the keeper must never be the reason the process outlives
         # the client that started it.
         threading.Thread(target=auto_refresh, args=(stop,), daemon=True,
@@ -1038,6 +1047,7 @@ def main() -> None:
         mcp.run()
     finally:
         stop.set()
+    return 0
 
 
 if __name__ == "__main__":
